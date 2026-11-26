@@ -13,7 +13,11 @@ unweighted, the results the results page computed and kept); nothing is estimate
 
 Aggregates only: no row per person, no free texts (the values per person of HB and latent class models are columns of
 the data set, app/export.py model_columns). README.txt names the data basis and every file, tabellen.csv lists the
-files with their rows."""
+files with their rows.
+
+The same tables as one Excel file (build_xlsx, button "Tabellen (Excel)"; Ralf, 2026-11-26): a sheet per table, written
+by the app's own writer (app/xlsx.py), the numbers of the core tables as numbers, unrounded; the sheets "README" and
+"tabellen" stand for the two files of the ZIP."""
 import csv
 import io
 import re
@@ -23,6 +27,7 @@ from app.items.base import plain
 
 NAME = "ergebnistabellen.zip"
 SHOWN = "wie_angezeigt"
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 # file -> (columns, German description, English description); the order is the order in README and tabellen.csv
 FILES = {
@@ -442,7 +447,8 @@ def shown(root):
 
 # --- the ZIP -------------------------------------------------------------------------------------------------------
 
-def _readme(survey, ui, data, pool, computed_at, files, n_shown, separator):
+def _readme(survey, ui, data, pool, computed_at, files, n_shown, separator, book=False):
+    """The text of README.txt; book: of the sheet "README" of the Excel file, which speaks of sheets."""
     from app import brand, timeutil
 
     en = ui == "en"
@@ -469,30 +475,46 @@ def _readme(survey, ui, data, pool, computed_at, files, n_shown, separator):
                   "(PDF). Nothing is estimated anew: an estimate that is missing or out of date (HB, segments) is "
                   "missing here too.", d=timeutil.fmt(computed_at, lang=ui)),
               say("Erstellt mit {b}.", "Made with {b}.", b=brand.name()), "",
-              say("Format: CSV, UTF-8, Trennzeichen {s}, Dezimalpunkt, ungerundet; leer = kein Wert; 1/0 = ja/nein. "
-                  "Datei- und Spaltennamen sind fest und hängen nicht von der Sprache ab. Anteile und Wichtigkeiten "
-                  "stehen als 0 bis 1. Die Spalte frage ist der Variablenname der Frage wie im Datensatz und im "
-                  "Codebuch.",
-                  "Format: CSV, UTF-8, separator {s}, decimal point, unrounded; empty = no value; 1/0 = yes/no. File "
-                  "and column names are fixed and do not depend on the language. Shares and importances are written as "
-                  "0 to 1. The column frage is the variable name of the question as in the data set and the codebook.",
-                  s=say("Semikolon", "semicolon") if separator == "semicolon" else say("Komma", "comma")), "",
-              say("Dateien", "Files"), "-------"]
+              (say("Format: Excel-Datei (.xlsx), ein Blatt je Tabelle. Zahlen stehen als Zahlen, ungerundet (Excel zeigt "
+                   "sie in der Schreibweise des eigenen Rechners); leer = kein Wert; 1/0 = ja/nein. Blatt- und "
+                   "Spaltennamen sind fest und hängen nicht von der Sprache ab. Anteile und Wichtigkeiten stehen als 0 "
+                   "bis 1. Die Spalte frage ist der Variablenname der Frage wie im Datensatz und im Codebuch.",
+                   "Format: Excel file (.xlsx), one sheet per table. Numbers are written as numbers, unrounded (Excel "
+                   "shows them in the notation of your own computer); empty = no value; 1/0 = yes/no. Sheet and column "
+                   "names are fixed and do not depend on the language. Shares and importances are written as 0 to 1. "
+                   "The column frage is the variable name of the question as in the data set and the codebook.")
+               if book else
+               say("Format: CSV, UTF-8, Trennzeichen {s}, Dezimalpunkt, ungerundet; leer = kein Wert; 1/0 = ja/nein. "
+                   "Datei- und Spaltennamen sind fest und hängen nicht von der Sprache ab. Anteile und Wichtigkeiten "
+                   "stehen als 0 bis 1. Die Spalte frage ist der Variablenname der Frage wie im Datensatz und im "
+                   "Codebuch.",
+                   "Format: CSV, UTF-8, separator {s}, decimal point, unrounded; empty = no value; 1/0 = yes/no. File "
+                   "and column names are fixed and do not depend on the language. Shares and importances are written as "
+                   "0 to 1. The column frage is the variable name of the question as in the data set and the codebook.",
+                   s=say("Semikolon", "semicolon") if separator == "semicolon" else say("Komma", "comma"))), "",
+              say("Blätter", "Sheets") if book else say("Dateien", "Files"), "-------"]
     for name, n in files:
         columns, de, en_text = FILES[name]
-        lines += [f"{name} ({n} {say('Zeilen', 'rows')})", "  " + say(de, en_text),
+        lines += [f"{sheet_name(name) if book else name} ({n} {say('Zeilen', 'rows')})", "  " + say(de, en_text),
                   "  " + say("Spalten: ", "Columns: ") + ", ".join(columns), ""]
     if n_shown:
-        lines += [f"{SHOWN}/ ({n_shown} {say('Dateien', 'files')})",
-                  "  " + say("Jede Tabelle der Ergebnisseite, wie sie dort steht: gerundet und in der Sprache der "
-                             "Oberfläche, Zahlen als Text. Vollständig, auch für Ergebnisse ohne eigene Datei oben "
-                             "(Hypothesen, Strukturgleichungsmodell, Panelmodelle, Marktsimulator, seltene Fragetypen). "
-                             "Für Berechnungen bitte die Dateien oben nehmen, wo es sie gibt.",
-                             "Every table of the results page as it stands there: rounded and in the language of the "
-                             "interface, numbers as text. Complete, also for results without a file of their own above "
-                             "(hypotheses, structural equation model, panel models, market simulator, rarer kinds of "
-                             "question). For computations please take the files above where they exist."), ""]
-    lines += [say("tabellen.csv listet alle Dateien mit Zeilenzahl, Art (berechnet oder wie angezeigt) und Titel.",
+        as_shown = say("Jede Tabelle der Ergebnisseite, wie sie dort steht: gerundet und in der Sprache der "
+                       "Oberfläche, Zahlen als Text. Vollständig, auch für Ergebnisse ohne {own} oben "
+                       "(Hypothesen, Strukturgleichungsmodell, Panelmodelle, Marktsimulator, seltene Fragetypen). "
+                       "Für Berechnungen bitte die {those} oben nehmen, wo es sie gibt.",
+                       "Every table of the results page as it stands there: rounded and in the language of the "
+                       "interface, numbers as text. Complete, also for results without {own} above "
+                       "(hypotheses, structural equation model, panel models, market simulator, rarer kinds of "
+                       "question). For computations please take the {those} above where they exist.",
+                       own=(say("eigenes Blatt", "a sheet of their own") if book
+                            else say("eigene Datei", "a file of their own")),
+                       those=say("Blätter", "sheets") if book else say("Dateien", "files"))
+        lines += [say("Blätter 001-… bis {n:03d}-… ({n} Blätter)", "Sheets 001-… to {n:03d}-… ({n} sheets)", n=n_shown)
+                  if book else f"{SHOWN}/ ({n_shown} {say('Dateien', 'files')})", "  " + as_shown, ""]
+    lines += [say("Das Blatt tabellen listet alle Blätter mit Zeilenzahl, Art (berechnet oder wie angezeigt) und Titel.",
+                  "The sheet tabellen lists all sheets with their number of rows, kind (berechnet = computed, wie "
+                  "angezeigt = as shown) and title.") if book else
+              say("tabellen.csv listet alle Dateien mit Zeilenzahl, Art (berechnet oder wie angezeigt) und Titel.",
                   "tabellen.csv lists all files with their number of rows, kind (berechnet = computed, wie angezeigt = "
                   "as shown) and title."),
               say("Werte je Person (HB-Teilnutzen, Wichtigkeiten, Segment) stehen als Spalten im Datensatz, nicht hier.",
@@ -500,27 +522,36 @@ def _readme(survey, ui, data, pool, computed_at, files, n_shown, separator):
     return "\r\n".join(lines) + "\r\n"
 
 
-def build(survey, ui=None, separator="comma", data=None, pool=None, computed_at=None, page=True):
-    """The ZIP as bytes. ui: the language of README and of the tables as shown ("de"/"en"; None: the page's).
-    page: also the tables of the results page (needs a request of a person, as the report)."""
+def _gather(survey, ui, data, pool, computed_at, page):
+    """What both files are written from: (ui, data, pool, computed_at, the core tables, [(core file, rows)],
+    [(title, section, head or None, rows)] of the tables as shown, the rows of a table all of one width)."""
     from app import results_pdf
     from app.items.base import reader
 
     if data is None:
         data, pool, computed_at = results_pdf.collect(survey)
-    ui = reader(ui)
     tables = core(data)
     files = [(name, len(rows)) for name, rows in tables.rows.items() if rows]
-    index = [{"datei": name, "zeilen": n, "art": "berechnet", "titel": "", "abschnitt": ""} for name, n in files]
     found = []
     root = results_pdf.page_tree(survey) if page else None
     if root is not None:
-        for number, (title, section, head, rows) in enumerate(shown(root), start=1):
-            name = f"{SHOWN}/{number:03d}-{_slug(section or title)}.csv"
+        for title, section, head, rows in shown(root):
             width = max([len(head)] + [len(r) for r in rows])
-            body = [(r + [""] * width)[:width] for r in rows]
-            found.append((name, (head + [""] * width)[:width] if head else None, body))
-            index.append({"datei": name, "zeilen": len(rows), "art": "wie angezeigt", "titel": title, "abschnitt": section})
+            found.append((title, section, (head + [""] * width)[:width] if head else None,
+                          [(r + [""] * width)[:width] for r in rows]))
+    return reader(ui), data, pool, computed_at, tables, files, found
+
+
+def build(survey, ui=None, separator="comma", data=None, pool=None, computed_at=None, page=True):
+    """The ZIP as bytes. ui: the language of README and of the tables as shown ("de"/"en"; None: the page's).
+    page: also the tables of the results page (needs a request of a person, as the report)."""
+    ui, data, pool, computed_at, tables, files, shown_tables = _gather(survey, ui, data, pool, computed_at, page)
+    index = [{"datei": name, "zeilen": n, "art": "berechnet", "titel": "", "abschnitt": ""} for name, n in files]
+    found = []
+    for number, (title, section, head, body) in enumerate(shown_tables, start=1):
+        name = f"{SHOWN}/{number:03d}-{_slug(section or title)}.csv"
+        found.append((name, head, body))
+        index.append({"datei": name, "zeilen": len(body), "art": "wie angezeigt", "titel": title, "abschnitt": section})
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("README.txt", "﻿" + _readme(survey, ui, data, pool, computed_at, files, len(found), separator))
@@ -537,7 +568,72 @@ def build(survey, ui=None, separator="comma", data=None, pool=None, computed_at=
     return out.getvalue()
 
 
+# --- the Excel file ------------------------------------------------------------------------------------------------
+
+def sheet_name(file):
+    """The sheet of a core file: its name without ".csv" (all under Excel's 31 characters)."""
+    return file[:-4] if file.endswith(".csv") else file
+
+
+def _value(value):
+    """A value as a sheet takes it: a number stays a number (unrounded), yes/no becomes 1/0, nothing and what Excel
+    cannot hold as a number (NaN, infinite) an empty cell."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return 1 if value else 0
+    if hasattr(value, "item") and not isinstance(value, (str, bytes, int, float)):  # a numpy number
+        try:
+            return _value(value.item())
+        except (AttributeError, ValueError):
+            return str(value)
+    if isinstance(value, float):
+        if value != value or value in (float("inf"), float("-inf")):
+            return ""
+        return int(value) if value.is_integer() and abs(value) < 1e15 else value
+    return value if isinstance(value, int) else str(value)
+
+
+def _widths(head, rows, least=8, most=60):
+    """Column widths in characters from what stands in the column, within limits."""
+    widths = [len(str(h)) for h in head]
+    for r in rows:
+        for i, v in enumerate(r[:len(widths)]):
+            widths[i] = max(widths[i], len(str(v)))
+    return [min(most, max(least, w + 2)) for w in widths]
+
+
+def build_xlsx(survey, ui=None, data=None, pool=None, computed_at=None, page=True):
+    """The Excel file as bytes: the sheets "README" and "tabellen", a sheet per core table (named as its file in the
+    ZIP, numbers as numbers) and a sheet per table of the results page as it stands there ("001-…", cells as text).
+    ui and page as for build()."""
+    from app import xlsx
+
+    ui, data, pool, computed_at, tables, files, found = _gather(survey, ui, data, pool, computed_at, page)
+    index = [[sheet_name(name), n, "berechnet", "", ""] for name, n in files]
+    sheets = []
+    for name, _ in files:
+        columns = list(FILES[name][0])
+        rows = [[_value(r.get(c)) for c in columns] for r in tables.rows[name]]
+        sheets.append((sheet_name(name), columns, rows, _widths(columns, rows)))
+    for number, (title, section, head, body) in enumerate(found, start=1):
+        name = f"{number:03d}-{_slug(section or title, 26)}"
+        head = head or [""] * len(body[0])
+        sheets.append((name, head, body, _widths(head, body)))
+        index.append([name, len(body), "wie angezeigt", title, section])
+    readme = _readme(survey, ui, data, pool, computed_at, files, len(found), None, book=True).split("\r\n")
+    while readme and not readme[-1]:
+        readme.pop()
+    head = ["blatt", "zeilen", "art", "titel", "abschnitt"]
+    return xlsx.workbook([("README", readme[:1], [[line] for line in readme[1:]], [120]),
+                          ("tabellen", head, index, _widths(head, index))] + sheets)
+
+
 def filename(survey):
     from app import export
 
     return export.filename(survey, "ergebnistabellen")[:-4] + ".zip"
+
+
+def filename_xlsx(survey):
+    return filename(survey)[:-4] + ".xlsx"
