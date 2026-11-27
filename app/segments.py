@@ -1302,7 +1302,8 @@ def enrich(item, view, entries, table, weighting=None):
     view["hits"] = _hits(item, stored, table)
 
 
-HB_MEANS = 2  # form of view["hb_means"]: 2 = hard assignment with SD and n, both scales, importances (2026-11-27)
+HB_MEANS = 3  # form of view["hb_means"]: 2 = hard assignment with SD and n, both scales, importances; 3 = with the
+#               price coefficient and the constant (2026-11-27)
 
 
 def _per_segment(U, seg, K):
@@ -1326,8 +1327,9 @@ def _hb_means(item, stored, sol, K):
     membership probabilities, as the data set column <code>_lk), per segment mean, sample SD and n. CBC and ACBC:
     part-worths per level on the raw logit scale ("rows") and rescaled per person ("diffs", conjoint_hb.diff_factors,
     people without a factor left out; the page shows the one the HB block of the question shows,
-    conjoint_hb.scale_of), and the importances per attribute (mean and SD of the individual importances, the same on
-    both scales). MaxDiff: probability scores. None without a current HB result of the same persons (and for the
+    conjoint_hb.scale_of), with a linear price its coefficient per currency unit ("price") and with a constant the
+    constant "none of these" or the threshold of an ACBC ("asc") on both scales, and the importances per attribute
+    (mean and SD of the individual importances, the same on both scales). MaxDiff: probability scores. None without a current HB result of the same persons (and for the
     ratings-based conjoint, whose segments already are in points of the scale)."""
     if K < 2 or item.type == "cva":
         return None
@@ -1367,13 +1369,27 @@ def _hb_means(item, stored, sol, K):
                                                         for lv in range(n)]}
                 for a, start, n in hb["spans"]]
 
-    out.update(kind="cbc", rows=levels(means, sds), diffs=None, importance=[])
+    from app.choice_model import price_unit
+
+    # the price coefficient (linear price) and the constant of every person, as the HB block shows them
+    extra = {name: np.array(hb[name], dtype=float)[who] for name in ("price", "asc") if hb.get(name) is not None}
+    more = {"price": {"unit": price_unit(hb.get("price_range") or [])}, "asc": {"threshold": hb.get("type") == "acbc"}}
+
+    def single(factor, keep):
+        found = {}
+        for name, x in extra.items():
+            m, d = _per_segment((x[keep] * factor)[:, None], seg[keep], K)
+            found[name] = {**more[name], "values": m[0], "sd": d[0]}
+        return found
+
+    everyone = np.ones(len(who), dtype=bool)
+    out.update(kind="cbc", rows=levels(means, sds), diffs=None, importance=[], **single(1.0, everyone))
     f = conjoint_hb.diff_factors(hb)[who]
     ok = np.isfinite(f)
     if ok.any():
         m, d = _per_segment(U[ok] * f[ok][:, None], seg[ok], K)
         out["diffs"] = {"rows": levels(m, d), "n": [int((seg[ok] == c).sum()) for c in range(K)],
-                        "persons": int(ok.sum()), "left_out": int((~ok).sum())}
+                        "persons": int(ok.sum()), "left_out": int((~ok).sum()), **single(f[ok], ok)}
     imp = conjoint_hb.importances(hb)
     if len(imp):
         m, d = _per_segment(imp[who], seg, K)

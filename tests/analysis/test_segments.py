@@ -402,6 +402,13 @@ def test_profiles_hit_rates_and_hb_means(app, client, survey, monkeypatch):
         assert [r["label"] for r in means["importance"]] == ["Aussehen", "Datenschutz", "Preis"]  # the price last
         assert means["importance"][0]["values"][0] == pytest.approx(shares[:, 0].mean())
         assert sum(r["values"][0] for r in means["importance"]) == pytest.approx(1.0, abs=1e-4)  # stored rounded
+        # the price coefficient and the constant "none of these" of the same people, raw and rescaled
+        price, none = np.array(hb["price"])[first], np.array(hb["asc"])[first]
+        assert means["price"]["values"][0] == pytest.approx(price.mean()) and means["price"]["sd"][0] == pytest.approx(price.std(ddof=1))
+        assert means["asc"]["values"][0] == pytest.approx(none.mean()) and means["asc"]["threshold"] is False
+        assert means["diffs"]["price"]["values"][0] == pytest.approx((price * factor).mean())
+        assert means["diffs"]["asc"]["sd"][0] == pytest.approx((none * factor).std(ddof=1))
+        unit = means["price"]["unit"]
     # the results page: the fold with n in the column head, M (SD), on the scale of the HB block; then the importances
     from app.units import number
 
@@ -412,11 +419,15 @@ def test_profiles_hit_rates_and_hb_means(app, client, survey, monkeypatch):
     assert "je Person normiert" in fold and "wahrscheinlichsten Segment (120 Personen" in fold
     assert "gewichtet mit ihrer Zugehörigkeit" not in fold and "-Wichtigkeiten je Segment" in fold
     assert number(scaled["values"][0], 1, "de") in fold and f'({number(scaled["sd"][0], 1, "de")})' in fold
+    assert f"Preiskoeffizient je {unit} Währungseinheit" in fold and "Konstante „Keine davon“" in fold
+    assert f'({number(means["diffs"]["price"]["sd"][0] * unit, 2, "de")})' in fold
+    assert f'({number(means["diffs"]["asc"]["sd"][0], 1, "de")})' in fold and "mit demselben Faktor der Person normiert" in fold
     # the raw scale chosen in the HB block: the segments of the question alone follow it (static/segments.js)
     client.post("/surveys/1/results/hb/2/scale", data={"scale": "raw"}, headers=FETCH)
     part = client.get("/surveys/1/results?lc_part=2", headers=FETCH).data.decode()
     assert "als Rohwerte (Logit-Skala)" in part and "je Person normiert" not in part
     assert f'({number(look[0]["sd"][0], 2, "de")})' in part
+    assert f'({number(means["price"]["sd"][0] * unit, 4, "de")})' in part and f'({number(means["asc"]["sd"][0], 2, "de")})' in part
     # the report takes the two tables over from the page, with their notes
     from tests.exports.test_results_pdf import _text
 
@@ -424,6 +435,7 @@ def test_profiles_hit_rates_and_hb_means(app, client, survey, monkeypatch):
     assert "HB-Nutzen je Segment" in report and "HB-Wichtigkeiten je Segment" in report
     assert "als Rohwerte (Logit-Skala), wie im HB-Block der Frage gewählt" in report
     assert f"Segment 1 n = {means['n'][0]}" in report and f'({number(look[0]["sd"][0], 2, "de")})' in report
+    assert "Preiskoeffizient je" in report and "Konstante „Keine davon“" in report
     # results kept in the earlier form (means weighted with the membership, no SD, no n) are still drawn as they were
     from app import segments
 
@@ -434,6 +446,12 @@ def test_profiles_hit_rates_and_hb_means(app, client, survey, monkeypatch):
     fold = fold[:fold.index("</details>")]
     assert "gewichtet mit ihrer Zugehörigkeit (120 Personen)" in fold and "+1,25" in fold and "−1,50" in fold
     assert "M (SD)" not in fold and "n = " not in fold and "-Wichtigkeiten je Segment" not in fold
+    # and the form before the price coefficient and the constant: the table without these rows
+    monkeypatch.setattr(segments, "_hb_means", lambda *a: {**old, "form": 2, "n": [60, 60], "diffs": None, "importance": []})
+    html = client.get("/surveys/1/results?source=real&go=1").data.decode()
+    fold = html[html.index("data-lc-hb"):]
+    fold = fold[:fold.index("</details>")]
+    assert "M (SD)" in fold and "Preiskoeffizient" not in fold and "Konstante" not in fold
 
 
 def test_simulator_per_segment(app, client, survey):

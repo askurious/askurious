@@ -215,10 +215,15 @@ def test_choice_models_and_segments_as_long_tables():
                "rows": [{"label": "weiblich", "shares": [0.7, 0.3], "count": 21}]},
               {"kind": "mean", "code": "alter", "label": "Alter", "test": {"small": True},
                "per": [{"mean": 31.0, "sd": 4.0}, {"mean": 52.5, "sd": 6.0}]}]}],
-          "hb_means": {"kind": "cbc", "form": 2, "persons": 40, "n": [25, 15],
+          "hb_means": {"kind": "cbc", "form": 3, "persons": 40, "n": [25, 15],
+                       "price": {"unit": 10, "values": [-0.02, -0.04], "sd": [0.01, None]},
+                       "asc": {"threshold": False, "values": [-1.5, 0.5], "sd": [0.75, None]},
                        "rows": [{"label": "Kommunikator", "levels": [
                            {"label": "Wissenschaftler", "values": [0.2, 0.8], "sd": [0.5, None]}]}],
-                       "diffs": {"persons": 39, "left_out": 1, "n": [25, 14], "rows": [{"label": "Kommunikator", "levels": [
+                       "diffs": {"persons": 39, "left_out": 1, "n": [25, 14],
+                                 "price": {"unit": 10, "values": [-1.25, -2.5], "sd": [0.5, 0.25]},
+                                 "asc": {"threshold": False, "values": [-80.0, 30.0], "sd": [40.0, 20.0]},
+                                 "rows": [{"label": "Kommunikator", "levels": [
                            {"label": "Wissenschaftler", "values": [12.5, 48.0], "sd": [30.25, 21.0]}]}]},
                        "importance": [{"label": "Kommunikator", "values": [0.35, 0.75], "sd": [0.1, 0.2]}]}}
     ww = {"result": {"persons": 40, "flagged": 1, "confirm": {"mode": "tasks", "splits": 8},
@@ -247,8 +252,12 @@ def test_choice_models_and_segments_as_long_tables():
     assert {("teilnutzen", 1), ("wichtigkeit", 2), ("preis", 1), ("konstante", 2), ("hb_mittel", 2)} <= kinds
     # the individual HB values per segment: mean, SD and n on both scales, and the importances
     hb_rows = {(r["art"], r["skala"], r["segment"]): r for r in t["segmente_parameter.csv"] if r["art"].startswith("hb_")}
-    assert set(hb_rows) == {(a, s, c) for a, s in (("hb_mittel", "roh"), ("hb_mittel", "normiert"), ("hb_wichtigkeit", None))
-                            for c in (1, 2)}
+    assert set(hb_rows) == {(a, s, c) for a in ("hb_mittel", "hb_preis", "hb_konstante") for s in ("roh", "normiert")
+                            for c in (1, 2)} | {("hb_wichtigkeit", None, 1), ("hb_wichtigkeit", None, 2)}
+    price, none = hb_rows[("hb_preis", "roh", 2)], hb_rows[("hb_konstante", "normiert", 2)]
+    assert (price["wert"], price["sd"], price["personen"]) == (-0.04, None, 15)     # per currency unit, as art = preis
+    assert (none["wert"], none["sd"], none["personen"], none["name"]) == (30.0, 20.0, 14, "Segment 2")
+    assert hb_rows[("hb_preis", "normiert", 1)]["wert"] == -1.25 and hb_rows[("hb_konstante", "roh", 1)]["sd"] == 0.75
     raw, scaled = hb_rows[("hb_mittel", "roh", 2)], hb_rows[("hb_mittel", "normiert", 2)]
     assert (raw["wert"], raw["sd"], raw["personen"], raw["stufe"]) == (0.8, None, 15, "Wissenschaftler")
     assert (scaled["wert"], scaled["sd"], scaled["personen"], scaled["merkmal"]) == (48.0, 21.0, 14, "Kommunikator")

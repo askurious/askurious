@@ -108,11 +108,39 @@ def test_loose_attribute_without_importance_and_price_importance(monkeypatch):
     assert farbe["sd"] == [pytest.approx(np.std([0.25, 0.5], ddof=1)), pytest.approx(np.std([0.75, 1.0], ddof=1))]
     # rescaled with the price range in the sum of the ranges (conjoint_hb.diff_factors): person a 200 / (2 + 0.1 * 10)
     assert out["diffs"]["rows"][0]["levels"][0]["values"][0] == pytest.approx((1.0 * 200 / 3 + 3.0 * 200 / 8) / 2)
+    # the price coefficient per currency unit (range 10 to 20: shown per 1) and no constant
+    assert out["price"]["unit"] == 1 and "asc" not in out and "asc" not in out["diffs"]
+    assert out["price"]["values"] == [pytest.approx(-0.15), pytest.approx(-0.35)]
+    assert out["price"]["sd"] == [pytest.approx(np.std([-0.1, -0.2], ddof=1)), pytest.approx(np.std([-0.3, -0.4], ddof=1))]
+    # rescaled with the person's factor: a 200 / 3, b 200 / (6 + 2) = 25, c 200 / (1 + 3) = 50, d 200 / (4 + 4) = 25
+    scaled = out["diffs"]["price"]
+    assert scaled["values"] == [pytest.approx((-0.1 * 200 / 3 - 0.2 * 25) / 2), pytest.approx((-0.3 * 50 - 0.4 * 25) / 2)]
+    assert scaled["sd"][1] == pytest.approx(abs(-0.3 * 50 + 0.4 * 25) / np.sqrt(2)) and scaled["unit"] == 1
     hb["loose"] = [0]                                                    # only the prior sets "Farbe": no importance
     out = segments._hb_means(item, {"pids": pids}, sol, 2)
     assert [r["label"] for r in out["importance"]] == ["Form"]
     # person d has no price range: importances() gives 0 where the remaining ranges sum to 0
     assert out["importance"][0]["values"] == [pytest.approx(1.0), pytest.approx(0.5)]
+
+
+def test_constant_and_threshold_per_segment(monkeypatch):
+    pids = ["a", "b", "c", "d", "e"]
+    hb = {**_hb(pids), "asc": [-1.0, -3.0, 0.5, 1.5, 2.0], "type": "conjoint"}
+    item = _cbc_item(monkeypatch, hb)
+    out = segments._hb_means(item, {"pids": pids}, {"tau": TAU, "pi": [0.4, 0.5, 0.1]}, 3)
+    assert "price" not in out and "price" not in out["diffs"]             # no linear price: no such row
+    asc = out["asc"]
+    assert asc["threshold"] is False and asc["values"] == [pytest.approx(-2.0), pytest.approx(4.0 / 3), None]
+    assert asc["sd"] == [pytest.approx(np.sqrt(2.0)), pytest.approx(np.std([0.5, 1.5, 2.0], ddof=1)), None]
+    # rescaled: a 200 / 6, b 200 / 9, c 200 / 3, d 200 / 7; e has no factor and is left out
+    scaled = out["diffs"]["asc"]
+    assert scaled["values"][0] == pytest.approx((-1.0 * 200 / 6 - 3.0 * 200 / 9) / 2)
+    assert scaled["values"][1] == pytest.approx((0.5 * 200 / 3 + 1.5 * 200 / 7) / 2) and scaled["values"][2] is None
+    assert scaled["sd"][1] == pytest.approx(abs(0.5 * 200 / 3 - 1.5 * 200 / 7) / np.sqrt(2))
+    hb["type"] = "acbc"                                                   # the constant of an ACBC is its threshold
+    item.type = "acbc"
+    out = segments._hb_means(item, {"pids": pids}, {"tau": TAU, "pi": [0.4, 0.5, 0.1]}, 3)
+    assert out["asc"]["threshold"] is True and out["diffs"]["asc"]["threshold"] is True
 
 
 def test_maxdiff_probability_scores_per_segment(monkeypatch):

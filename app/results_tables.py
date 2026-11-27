@@ -111,14 +111,18 @@ FILES = {
         "nutzen (MaxDiff je Aussage, mit Wahrscheinlichkeits-Score), hb_mittel (individuelle HB-Werte der Personen, "
         "deren wahrscheinlichstes Segment es ist: wert = Mittelwert, sd = Standardabweichung, personen = n; bei CBC "
         "und ACBC je Stufe mit skala = roh (Logit-Skala) und normiert (je Person normiert), bei MaxDiff die "
-        "Wahrscheinlichkeits-Scores), hb_wichtigkeit (individuelle HB-Wichtigkeiten je Merkmal, 0 bis 1, ebenso mit "
-        "sd und personen). sd bleibt leer bei weniger als 2 Personen.",
+        "Wahrscheinlichkeits-Scores), hb_preis (individueller HB-Preiskoeffizient je Währungseinheit bei linearem "
+        "Preis) und hb_konstante (individuelle HB-Konstante „Keine davon“, bei ACBC die Schwelle „kommt nicht "
+        "infrage“), beide wie hb_mittel mit skala, sd und personen, hb_wichtigkeit (individuelle HB-Wichtigkeiten je "
+        "Merkmal, 0 bis 1, ebenso mit sd und personen). sd bleibt leer bei weniger als 2 Personen.",
         "Per segment the parameters: art = teilnutzen (per level), wichtigkeit (per attribute, 0 to 1), preis, "
         "konstante, nutzen (MaxDiff per statement, with probability score), hb_mittel (individual HB values of the "
         "people whose most likely segment it is: wert = mean, sd = standard deviation, personen = n; for CBC and ACBC "
         "per level with skala = roh (logit scale) and normiert (rescaled per person), for MaxDiff the probability "
-        "scores), hb_wichtigkeit (individual HB importances per attribute, 0 to 1, likewise with sd and personen). sd "
-        "stays empty with fewer than 2 people."),
+        "scores), hb_preis (individual HB price coefficient per currency unit with a linear price) and hb_konstante "
+        "(individual HB constant “None of these”, for ACBC the threshold “out of the question”), both like hb_mittel "
+        "with skala, sd and personen, hb_wichtigkeit (individual HB importances per attribute, 0 to 1, likewise with "
+        "sd and personen). sd stays empty with fewer than 2 people."),
     "segmente_kovariaten.csv": (
         ("frage", "kovariate", "segment", "referenz", "koeffizient", "se", "odds_ratio", "p"),
         "Kovariaten der Segmentanteile: Logit-Koeffizient je Segment gegen das Referenzsegment, Standardfehler, Odds "
@@ -396,6 +400,16 @@ def _segments(t, code, lc):
         hb_rows(means.get("rows"), sizes, "roh" if hard and means.get("kind") != "maxdiff" else None)
         if means.get("diffs"):
             hb_rows(means["diffs"].get("rows"), means["diffs"].get("n") or [], "normiert")
+        for source, skala in ((means, "roh"), (means.get("diffs") or {}, "normiert")):
+            counts = source.get("n") or []
+            for key, art in (("price", "hb_preis"), ("asc", "hb_konstante")):  # per currency unit; the constant
+                found = source.get(key)
+                if not found:
+                    continue
+                sds = found.get("sd") or []
+                for c, name, v in per_segment(found.get("values")):
+                    t.add("segmente_parameter.csv", frage=code, segment=c + 1, name=name, art=art, skala=skala, wert=v,
+                          sd=sds[c] if c < len(sds) else None, personen=counts[c] if c < len(counts) else None)
         for row in means.get("importance") or []:
             sds = row.get("sd") or []
             for c, name, v in per_segment(row.get("values")):
