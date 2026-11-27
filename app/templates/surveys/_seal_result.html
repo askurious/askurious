@@ -25,7 +25,9 @@
   {# why the newest entry is still unstamped (seal.stamp_at_check): no service set, not reachable, a bad answer #}
   {% if stamp_note %}<li class="seal-stamp-note">{{ stamp_note }}</li>{% endif %}
 </ul>
-{{ sp.numbers([(de_en("heute", "today"), result.counts)]) }}
+{% set cols = [(de_en("aktueller Stand", "current state"), result.counts)] %}
+{{ sp.numbers(cols) }}
+{{ sp.entries(cols) }}
 {% if result.head %}
 <p class="small seal-head">{{ de_en("Prüfsumme der Kette (Eintrag {n}):", "Checksum of the chain (entry {n}):", n=result.head_seq) }} <code>{{ result.head }}</code><br>
   <span class="muted">{{ de_en("Wer diese Prüfsumme notiert, etwa im Manuskript, kann später zeigen, dass die Daten bis hierhin unverändert sind: Jede Änderung an einem früheren Eintrag ergäbe eine andere.", "Anyone who notes this checksum, e.g. in the manuscript, can show later that the data up to here are unchanged: any change to an earlier entry would give another one.") }}</span></p>
