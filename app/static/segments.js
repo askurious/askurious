@@ -99,5 +99,18 @@
       .catch(function () { busy(part, false); status(part, de_en("Das hat nicht geklappt. Bitte die Seite neu laden.", "That did not work. Please reload the page.")); });
   });
 
+  // the HB values per segment follow the scale chosen in the HB block (static/hb.js): the segments come anew
+  document.addEventListener("askurious:hb-updated", function (e) {
+    var id = e.detail && e.detail.item;
+    document.querySelectorAll('.lc-part[data-lc-item="' + id + '"]').forEach(function (part) {
+      if (!part.querySelector("[data-lc-hb]") || part.querySelector("[data-lc-running]")) return;
+      var open = part.querySelector("[data-lc-hb]").open;
+      load(part).then(function () {
+        var fold = document.querySelector('.lc-part[data-lc-item="' + id + '"] [data-lc-hb]');
+        if (fold && open) fold.open = true;
+      });
+    });
+  });
+
   document.querySelectorAll(".lc-part").forEach(follow);
 })();
