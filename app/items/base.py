@@ -1103,6 +1103,9 @@ class ItemType:
         """{column: value} that need the response itself, e.g. presentation drawn from its id."""
         return {}
 
+    # keys of the config that are a record of what happened, not a setting: "Rückgängig" leaves them (app/undo.py)
+    kept_on_undo = ()
+
     def export_state_values(self, item, state):
         """{column: value} from the item's per-response state (layout["cj"], see expand_pages)."""
         return {}

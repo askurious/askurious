@@ -263,7 +263,8 @@ def path(survey, name):
 COMPARE_MAX = 30  # differences named on the page; the count is always whole
 # what the start itself sets right after the freeze (lifecycle.start): the data pool of the results and the
 # confirmations of the consent; no change of the questionnaire
-SET_AT_START = {"survey": ("data_pool",), "config": ("confirm_keys",)}
+# (confirm_versions and wordings: what each version asked and every wording agreed to, items/consent.py)
+SET_AT_START = {"survey": ("data_pool",), "config": ("confirm_keys", "confirm_versions", "wordings")}
 
 
 def frozen_definition(survey, name):
