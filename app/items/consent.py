@@ -22,7 +22,7 @@ CONFIRMATIONS = ("age", "voluntary", "data", "special", "audio", "ai_chat", "com
 REQUIRED = ("special", "audio", "ai_chat")
 FORMER_CONFIRMATIONS = ("age", "voluntary", "data", "commitment")  # surveys started before 2026-10-20
 # the column <code>_text of the export (Consent.wording_column); English in export.COLUMN_LABELS_EN
-WORDING_LABEL = "Wortlaut der Einwilligung beim Beginn der Teilnahme (Nummer, die Wortlaute stehen im Fragebogen)"
+WORDING_LABEL = "Wortlaut der Einwilligung, dem zugestimmt wurde (Nummer, die Wortlaute stehen im Fragebogen)"
 CONFIRMATION_LABELS = {  # (German, English) for the editor (editor/base.py, consent_labels)
     "age": ("Mindestalter", "Minimum age"),
     "voluntary": ("Freiwilligkeit", "Voluntary participation"),
@@ -652,8 +652,8 @@ class Consent(ItemType):
         agree). Called after the start (lifecycle.start), with every change of the element or of the deletion
         code in a survey that has started (lifecycle._note_text_corrections) and, found=True, once for surveys
         that started before the record began (record_missing): their entry has no "from", it is the wording as
-        found then, and corrections before that are not known. A wording nobody began under (corrected again
-        before the next participation, as the editor saves by itself) is replaced, not kept."""
+        found then, and corrections before that are not known. A wording nobody began under or sent a page under
+        (corrected again before the next participation, as the editor saves by itself) is replaced, not kept."""
         from app.models import Response, utcnow
 
         survey = item.survey
@@ -670,8 +670,10 @@ class Consent(ItemType):
             from datetime import datetime
 
             with db.session.no_autoflush:
+                since = datetime.fromisoformat(last["from"])  # began under it, or sent a page (an agreement) since
                 began = db.session.scalar(db.select(Response.id).where(
-                    Response.survey_id == survey.id, Response.started_at >= datetime.fromisoformat(last["from"])).limit(1))
+                    Response.survey_id == survey.id,
+                    db.or_(Response.started_at >= since, Response.last_active_at >= since)).limit(1))
             if began is None and not (len(kept) > 1 and kept[-2].get("texts") == texts):
                 entry.update(n=last["n"], **{"from": last["from"]})
                 kept = kept[:-1]
@@ -680,9 +682,37 @@ class Consent(ItemType):
                 return
         item.config = {**item.config, "wordings": kept + [entry]}
 
+    def wording_token(self, item):
+        """What the consent page carries in the hidden field i<id>_w: the number of the wording it shows and a
+        fingerprint of it; "" in a draft and while nothing is kept. With it the agreement names the wording the
+        person read, not the one in force when the participation began (Ralf, 2026-11-27)."""
+        import hashlib
+        import json
+
+        kept = self.wordings(item)
+        if item.survey.status == "draft" or not kept:
+            return ""
+        text = json.dumps(kept[-1].get("texts"), sort_keys=True, ensure_ascii=False)
+        return f"{kept[-1]['n']}.{hashlib.sha256(text.encode('utf-8')).hexdigest()[:12]}"
+
+    def stale_wording(self, item, form):
+        """True if the page agrees to a wording that is no longer the one shown now (corrected while the page was
+        open): the page comes once more with the current text. Declining needs no text, and a page without the
+        field (an older page, the apps) is taken as before."""
+        sent = form.get(f"i{item.id}_w")
+        return bool(sent) and form.get(f"i{item.id}") == "1" and sent != self.wording_token(item)
+
+    def agreed_wording(self, item, form):
+        """The number of the wording an agreeing page showed (kept with the participation, layout "consent_text"),
+        or None for a page without the field."""
+        sent = form.get(f"i{item.id}_w") or ""
+        number = sent.split(".")[0]
+        return int(number) if sent and sent == self.wording_token(item) and number.isdigit() else None
+
     def wording_of(self, item, started_at, kept=None):
         """The number of the wording in force when a participation began (the consent is its first page), or None
-        while nothing is kept for that time."""
+        while nothing is kept for that time. The export takes it where the agreement itself names none
+        (agreed_wording)."""
         from datetime import datetime
 
         found = None
@@ -1285,7 +1315,11 @@ class Consent(ItemType):
         column = prepared(item, "consent_wording_column", lambda: self.wording_column(item))
         if column:
             kept = prepared(item, "consent_wordings", lambda: self.wordings(item))
-            out[column] = self.wording_of(item, getattr(response, "started_at", None), kept)
+            # the wording the agreeing page showed; for agreements from before that was kept (2026-11-27) and pages
+            # without the field the one in force when the participation began
+            agreed = (getattr(response, "layout", None) or {}).get("consent_text")
+            out[column] = agreed if isinstance(agreed, int) and any(w["n"] == agreed for w in kept) else self.wording_of(
+                item, getattr(response, "started_at", None), kept)
         return out
 
     ends_page = True  # the consent buttons replace the page's "Next" button
