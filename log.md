@@ -7937,3 +7937,9 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 - Stufe 3: „Grundlage und Ansicht“: der gespeicherte Datenpool steht in einem Dialog (Knopf „Datenpool …“ in der Zustandszeile, die Seite lädt nach dem Schließen neu), „Nur diese Ansicht“ kompakt. Der Abschnitt „Quoten“ (Soll und Ist) steht nicht mehr auf der Ergebnisseite (Ablauf › Quoten). Reihenfolge: Studienplan-Zeile, Grundlage und Ansicht, Tagebuch-Abschnitte, Ergebnisse je Hypothese, Analysen, Skalen im Überblick, Skalen nach Gruppen, Geschlecht und Fragen, Fragen aus dem Publikum, Literatur.
 - Alte Adressen der Ergebnisseite (#hb-…, #lc-…, #sim-…, #quality-…, #sem…, #panel…, #vignetten-…) leiten per Skript auf die neue Seite weiter. Der PDF-Ergebnisbericht und die Tabellen „wie angezeigt“ lesen die neuen Seiten mit und behalten die Quoten (`results_pdf._with_analyses`, `g.results_report`): inhaltlich unverändert.
 - Handbuch (Abschnitte „Conjoint-Auswertung“, „Modelle auf eigenen Seiten“, Ergebnisse) deutsch und englisch. Rechtstexte geprüft, keine Änderung nötig. Keine Migration. Tests: `tests/analysis/test_analysis_page.py`, dazu die Tests zu Conjoint, HB, Segmenten, Simulator, Modell, Panel und Vignetten auf die neuen Seiten umgestellt.
+
+## 2026-11-09: Einwilligung, Bestätigungen nach dem Wiederöffnen änderbar
+
+- Eine wieder zur Bearbeitung geöffnete Befragung mit echten Zustimmungen behielt beim Speichern still die Bestätigungen (Abwählen kam beim nächsten Laden zurück). Jetzt lassen sie sich in jedem bearbeitbaren Entwurf ändern.
+- Jeder Start hält die Bestätigungen seiner Fragebogen-Fassung fest (`confirm_versions` in der Konfiguration der Einwilligung); Fassungen von vor heute bekommen beim ersten Ändern die des letzten Starts, die bis dahin nicht änderbar waren.
+- Export: Spalten für die Bestätigungen aller Fassungen; leer bei Teilnahmen, deren Fassung (qversion) die Bestätigung nicht gefragt hat.
