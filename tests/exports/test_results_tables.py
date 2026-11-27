@@ -215,7 +215,12 @@ def test_choice_models_and_segments_as_long_tables():
                "rows": [{"label": "weiblich", "shares": [0.7, 0.3], "count": 21}]},
               {"kind": "mean", "code": "alter", "label": "Alter", "test": {"small": True},
                "per": [{"mean": 31.0, "sd": 4.0}, {"mean": 52.5, "sd": 6.0}]}]}],
-          "hb_means": {"kind": "cbc", "rows": [{"label": "Kommunikator", "levels": [{"label": "Wissenschaftler", "values": [0.2, 0.8]}]}]}}
+          "hb_means": {"kind": "cbc", "form": 2, "persons": 40, "n": [25, 15],
+                       "rows": [{"label": "Kommunikator", "levels": [
+                           {"label": "Wissenschaftler", "values": [0.2, 0.8], "sd": [0.5, None]}]}],
+                       "diffs": {"persons": 39, "left_out": 1, "n": [25, 14], "rows": [{"label": "Kommunikator", "levels": [
+                           {"label": "Wissenschaftler", "values": [12.5, 48.0], "sd": [30.25, 21.0]}]}]},
+                       "importance": [{"label": "Kommunikator", "values": [0.35, 0.75], "sd": [0.1, 0.2]}]}}
     ww = {"result": {"persons": 40, "flagged": 1, "confirm": {"mode": "tasks", "splits": 8},
                      "rows": [{"label": "A × B", "simple": {"p": 0.01, "estimable": True}, "hb": {"estimable": False},
                                "p_holm": 0.03, "gain": 0.4, "confirm": {"mean": 0.02}, "status": "confirmed",
@@ -240,6 +245,25 @@ def test_choice_models_and_segments_as_long_tables():
     assert [r["name"] for r in t["segmente.csv"]] == ["Preisbewusste", "Segment 2"]
     kinds = {(r["art"], r["segment"]) for r in t["segmente_parameter.csv"]}
     assert {("teilnutzen", 1), ("wichtigkeit", 2), ("preis", 1), ("konstante", 2), ("hb_mittel", 2)} <= kinds
+    # the individual HB values per segment: mean, SD and n on both scales, and the importances
+    hb_rows = {(r["art"], r["skala"], r["segment"]): r for r in t["segmente_parameter.csv"] if r["art"].startswith("hb_")}
+    assert set(hb_rows) == {(a, s, c) for a, s in (("hb_mittel", "roh"), ("hb_mittel", "normiert"), ("hb_wichtigkeit", None))
+                            for c in (1, 2)}
+    raw, scaled = hb_rows[("hb_mittel", "roh", 2)], hb_rows[("hb_mittel", "normiert", 2)]
+    assert (raw["wert"], raw["sd"], raw["personen"], raw["stufe"]) == (0.8, None, 15, "Wissenschaftler")
+    assert (scaled["wert"], scaled["sd"], scaled["personen"], scaled["merkmal"]) == (48.0, 21.0, 14, "Kommunikator")
+    imp = hb_rows[("hb_wichtigkeit", None, 1)]
+    assert (imp["wert"], imp["sd"], imp["personen"], imp["merkmal"], imp["name"]) == (0.35, 0.1, 25, "Kommunikator", "Preisbewusste")
+    assert {"skala", "sd", "personen"} <= set(results_tables.FILES["segmente_parameter.csv"][0])
+    # results kept in the earlier form (weighted means only) and MaxDiff scores: no scale, the old one without SD and n
+    for means, sd, n in (({"kind": "cbc", "rows": [{"label": "Kommunikator", "levels": [
+                              {"label": "Wissenschaftler", "values": [0.2, 0.8]}]}]}, None, None),
+                         ({"kind": "maxdiff", "form": 2, "persons": 40, "n": [25, 15],
+                           "rows": [{"label": "Aussage A", "values": [22.5, 8.0], "sd": [4.0, 3.0]}]}, 3.0, 15)):
+        rows = results_tables.core({"items": [_entry(cbc={"lc": {**lc, "hb_means": means}})]}).rows["segmente_parameter.csv"]
+        rows = [r for r in rows if r["art"].startswith("hb_")]
+        assert [(r["art"], r["skala"], r["segment"]) for r in rows] == [("hb_mittel", None, 1), ("hb_mittel", None, 2)]
+        assert (rows[1]["sd"], rows[1]["personen"]) == (sd, n) and rows[1]["wert"] in (0.8, 8.0)
     part = next(r for r in t["segmente_parameter.csv"] if r["art"] == "teilnutzen" and r["segment"] == 1)
     assert part["zahlungsbereitschaft"] == 3.5 and part["name"] == "Preisbewusste"
     assert t["segmente_kovariaten.csv"][0]["odds_ratio"] == 1.49 and t["segmente_kovariaten.csv"][0]["segment"] == "Segment 2"

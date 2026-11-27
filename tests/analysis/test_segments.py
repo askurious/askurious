@@ -6,6 +6,7 @@ import os
 import re
 
 import numpy as np
+import pytest
 
 from app.choice_model import ChoiceSet, Coding
 from app.extensions import db
@@ -384,6 +385,55 @@ def test_profiles_hit_rates_and_hb_means(app, client, survey, monkeypatch):
         look = means["rows"][0]["levels"]
         assert look[0]["values"][0] * look[0]["values"][1] < 0          # HB and segments agree on "look"
         assert data
+        # every person in their most likely segment (as the column cbc_lk), with SD and n, on both scales
+        from app import conjoint_hb
+
+        hb = conjoint_hb.current(item)
+        tau = dict(zip(stored["pids"], segments.solution(stored, 2)["tau"]))
+        first = [n for n, pid in enumerate(hb["pids"]) if tau[pid][0] >= tau[pid][1]]
+        assert means["n"] == [len(first), 120 - len(first)] and means["form"] == segments.HB_MEANS
+        column = np.array(hb["util"])[first, 0]
+        assert look[0]["values"][0] == pytest.approx(column.mean()) and look[0]["sd"][0] == pytest.approx(column.std(ddof=1))
+        factor = conjoint_hb.diff_factors(hb)[first]
+        scaled = means["diffs"]["rows"][0]["levels"][0]
+        assert scaled["values"][0] == pytest.approx((column * factor).mean())
+        assert scaled["sd"][0] == pytest.approx((column * factor).std(ddof=1)) and means["diffs"]["left_out"] == 0
+        shares = conjoint_hb.importances(hb)[first]
+        assert [r["label"] for r in means["importance"]] == ["Aussehen", "Datenschutz", "Preis"]  # the price last
+        assert means["importance"][0]["values"][0] == pytest.approx(shares[:, 0].mean())
+        assert sum(r["values"][0] for r in means["importance"]) == pytest.approx(1.0, abs=1e-4)  # stored rounded
+    # the results page: the fold with n in the column head, M (SD), on the scale of the HB block; then the importances
+    from app.units import number
+
+    html = client.get("/surveys/1/results?go=1").data.decode()
+    fold = html[html.index("data-lc-hb"):]
+    fold = fold[:fold.index("</details>")]
+    assert f'<span class="hint">n = {means["n"][0]}</span>' in fold and "M (SD)" in fold
+    assert "je Person normiert" in fold and "wahrscheinlichsten Segment (120 Personen" in fold
+    assert "gewichtet mit ihrer Zugehörigkeit" not in fold and "-Wichtigkeiten je Segment" in fold
+    assert number(scaled["values"][0], 1, "de") in fold and f'({number(scaled["sd"][0], 1, "de")})' in fold
+    # the raw scale chosen in the HB block: the segments of the question alone follow it (static/segments.js)
+    client.post("/surveys/1/results/hb/2/scale", data={"scale": "raw"}, headers=FETCH)
+    part = client.get("/surveys/1/results?lc_part=2", headers=FETCH).data.decode()
+    assert "als Rohwerte (Logit-Skala)" in part and "je Person normiert" not in part
+    assert f'({number(look[0]["sd"][0], 2, "de")})' in part
+    # the report takes the two tables over from the page, with their notes
+    from tests.exports.test_results_pdf import _text
+
+    report = " ".join(_text(client.get("/surveys/1/export/ergebnisbericht.pdf").data).split())
+    assert "HB-Nutzen je Segment" in report and "HB-Wichtigkeiten je Segment" in report
+    assert "als Rohwerte (Logit-Skala), wie im HB-Block der Frage gewählt" in report
+    assert f"Segment 1 n = {means['n'][0]}" in report and f'({number(look[0]["sd"][0], 2, "de")})' in report
+    # results kept in the earlier form (means weighted with the membership, no SD, no n) are still drawn as they were
+    from app import segments
+
+    old = {"kind": "cbc", "persons": 120, "rows": [{"label": "Aussehen", "levels": [{"label": "humanoid", "values": [1.25, -1.5]}]}]}
+    monkeypatch.setattr(segments, "_hb_means", lambda *a: old)
+    html = client.get("/surveys/1/results?source=real&go=1").data.decode()   # a named pool: computed anew
+    fold = html[html.index("data-lc-hb"):]
+    fold = fold[:fold.index("</details>")]
+    assert "gewichtet mit ihrer Zugehörigkeit (120 Personen)" in fold and "+1,25" in fold and "−1,50" in fold
+    assert "M (SD)" not in fold and "n = " not in fold and "-Wichtigkeiten je Segment" not in fold
 
 
 def test_simulator_per_segment(app, client, survey):

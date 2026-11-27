@@ -1012,10 +1012,11 @@ PATTERSON = ("Patterson, B. H., Dayton, C. M., & Graubard, B. I. (2002). Latent 
 
 def enriched_key(item, stored):
     """What the profiles, HB means and hit rates of a view rest on: the result, the shown K, the chosen questions and
-    the chosen covariates (a change of them asks for a new estimate)."""
+    the chosen covariates (a change of them asks for a new estimate), and the form of the HB means (a view kept in
+    an earlier form is computed anew)."""
     if not stored:
         return None
-    return [stored.get("key"), shown_k(item, stored), box(item).get("profile"), covariate_ids(item)]
+    return [stored.get("key"), shown_k(item, stored), box(item).get("profile"), covariate_ids(item), HB_MEANS]
 
 
 def profile_choices(item, entries):
@@ -1301,9 +1302,32 @@ def enrich(item, view, entries, table, weighting=None):
     view["hits"] = _hits(item, stored, table)
 
 
+HB_MEANS = 2  # form of view["hb_means"]: 2 = hard assignment with SD and n, both scales, importances (2026-11-27)
+
+
+def _per_segment(U, seg, K):
+    """(means, SDs): per value (column of U) a list over the K segments, from the rows whose segment (seg) it is.
+    Sample SD (n - 1); None for a segment without a finite value (mean) or with fewer than two (SD)."""
+    means, sds = [], []
+    for j in range(U.shape[1]):
+        m, d = [], []
+        for c in range(K):
+            x = U[seg == c, j]
+            x = x[np.isfinite(x)]
+            m.append(float(x.mean()) if len(x) else None)
+            d.append(float(x.std(ddof=1)) if len(x) > 1 else None)
+        means.append(m)
+        sds.append(d)
+    return means, sds
+
+
 def _hb_means(item, stored, sol, K):
-    """Means of the individual HB values per segment, weighted with the membership probabilities: CBC part-worths
-    per level, MaxDiff probability scores; None without a current HB result of the same persons (and for the
+    """The individual HB values per segment: every person counts in their most likely segment (argmax of the
+    membership probabilities, as the data set column <code>_lk), per segment mean, sample SD and n. CBC and ACBC:
+    part-worths per level on the raw logit scale ("rows") and rescaled per person ("diffs", conjoint_hb.diff_factors,
+    people without a factor left out; the page shows the one the HB block of the question shows,
+    conjoint_hb.scale_of), and the importances per attribute (mean and SD of the individual importances, the same on
+    both scales). MaxDiff: probability scores. None without a current HB result of the same persons (and for the
     ratings-based conjoint, whose segments already are in points of the scale)."""
     if K < 2 or item.type == "cva":
         return None
@@ -1318,24 +1342,48 @@ def _hb_means(item, stored, sol, K):
     if not hb:
         return None
     index = {pid: n for n, pid in enumerate(hb["pids"])}
-    pairs = [(index[pid], t) for pid, t in zip(stored["pids"], sol["tau"]) if pid in index]
+    pairs = [(index[pid], int(np.argmax(t))) for pid, t in zip(stored["pids"], sol["tau"]) if pid in index]
     if len(pairs) < lc.MIN_PERSONS:
         return None
-    U = np.array([hb[key][i] for i, _ in pairs], dtype=float)
-    T = np.array([t for _, t in pairs], dtype=float)
-    means = (T.T @ U) / T.sum(axis=0)[:, None]          # segments x values
+    who = [i for i, _ in pairs]
+    seg = np.array([c for _, c in pairs])
+    U = np.array(hb[key], dtype=float)[who]
+    sizes = [int((seg == c).sum()) for c in range(K)]
+    means, sds = _per_segment(U, seg, K)
     lang = item.survey.default_language
+    out = {"form": HB_MEANS, "persons": len(pairs), "n": sizes}
     if item.type == "maxdiff":
         labels = item.kind.labels(item, lang)
-        rows = [{"label": labels[i] if i < len(labels) else f"Aussage {i + 1}", "values": means[:, j].tolist()}
+        overall = U.mean(axis=0)
+        rows = [{"label": labels[i] if i < len(labels) else f"Aussage {i + 1}", "values": means[j], "sd": sds[j]}
                 for j, i in enumerate(hb["est"])]
-        rows.sort(key=lambda r: -float(np.dot(r["values"], sol["pi"])))
-        return {"kind": "maxdiff", "rows": rows, "persons": len(pairs)}
+        order = sorted(range(len(rows)), key=lambda j: -float(overall[j]))
+        return {**out, "kind": "maxdiff", "rows": [rows[j] for j in order]}
     attrs = item.kind.attributes(item, lang)
-    rows = [{"label": attrs[a]["label"], "levels": [{"label": attrs[a]["level_labels"][lv],
-                                                      "values": means[:, start + lv].tolist()} for lv in range(n)]}
-            for a, start, n in hb["spans"]]
-    return {"kind": "cbc", "rows": rows, "persons": len(pairs)}
+
+    def levels(means, sds):
+        return [{"label": attrs[a]["label"], "levels": [{"label": attrs[a]["level_labels"][lv],
+                                                         "values": means[start + lv], "sd": sds[start + lv]}
+                                                        for lv in range(n)]}
+                for a, start, n in hb["spans"]]
+
+    out.update(kind="cbc", rows=levels(means, sds), diffs=None, importance=[])
+    f = conjoint_hb.diff_factors(hb)[who]
+    ok = np.isfinite(f)
+    if ok.any():
+        m, d = _per_segment(U[ok] * f[ok][:, None], seg[ok], K)
+        out["diffs"] = {"rows": levels(m, d), "n": [int((seg[ok] == c).sum()) for c in range(K)],
+                        "persons": int(ok.sum()), "left_out": int((~ok).sum())}
+    imp = conjoint_hb.importances(hb)
+    if len(imp):
+        m, d = _per_segment(imp[who], seg, K)
+        names = [attrs[a]["label"] for a, _, _ in hb["spans"]]
+        if hb.get("has_price_importance"):
+            pa = item.kind.price_attribute(item) if item.type == "conjoint" else None
+            names.append(attrs[pa]["label"] if pa is not None else de_en("Preis", "Price"))
+        out["importance"] = [{"label": name, "values": m[j], "sd": d[j]} for j, name in enumerate(names[:len(m)])
+                             if any(v is not None for v in m[j])]  # a loose attribute has no importance
+    return out
 
 
 def _hits(item, stored, table):

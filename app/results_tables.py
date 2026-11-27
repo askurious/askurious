@@ -105,14 +105,20 @@ FILES = {
         "Per segment of the shown solution: share (0 to 1) with interval, people with this most likely segment, those "
         "clearly assigned, RLH."),
     "segmente_parameter.csv": (
-        ("frage", "segment", "name", "art", "merkmal_code", "merkmal", "stufe_nr", "stufe", "wert", "se", "score",
-         "zahlungsbereitschaft", "zb_low", "zb_high", "begrenzt"),
+        ("frage", "segment", "name", "art", "skala", "merkmal_code", "merkmal", "stufe_nr", "stufe", "wert", "se", "sd",
+         "personen", "score", "zahlungsbereitschaft", "zb_low", "zb_high", "begrenzt"),
         "Je Segment die Parameter: art = teilnutzen (je Stufe), wichtigkeit (je Merkmal, 0 bis 1), preis, konstante, "
-        "nutzen (MaxDiff je Aussage, mit Wahrscheinlichkeits-Score), hb_mittel (Mittel der individuellen HB-Werte je "
-        "Segment).",
+        "nutzen (MaxDiff je Aussage, mit Wahrscheinlichkeits-Score), hb_mittel (individuelle HB-Werte der Personen, "
+        "deren wahrscheinlichstes Segment es ist: wert = Mittelwert, sd = Standardabweichung, personen = n; bei CBC "
+        "und ACBC je Stufe mit skala = roh (Logit-Skala) und normiert (je Person normiert), bei MaxDiff die "
+        "Wahrscheinlichkeits-Scores), hb_wichtigkeit (individuelle HB-Wichtigkeiten je Merkmal, 0 bis 1, ebenso mit "
+        "sd und personen). sd bleibt leer bei weniger als 2 Personen.",
         "Per segment the parameters: art = teilnutzen (per level), wichtigkeit (per attribute, 0 to 1), preis, "
-        "konstante, nutzen (MaxDiff per statement, with probability score), hb_mittel (mean of the individual HB values "
-        "per segment)."),
+        "konstante, nutzen (MaxDiff per statement, with probability score), hb_mittel (individual HB values of the "
+        "people whose most likely segment it is: wert = mean, sd = standard deviation, personen = n; for CBC and ACBC "
+        "per level with skala = roh (logit scale) and normiert (rescaled per person), for MaxDiff the probability "
+        "scores), hb_wichtigkeit (individual HB importances per attribute, 0 to 1, likewise with sd and personen). sd "
+        "stays empty with fewer than 2 people."),
     "segmente_kovariaten.csv": (
         ("frage", "kovariate", "segment", "referenz", "koeffizient", "se", "odds_ratio", "p"),
         "Kovariaten der Segmentanteile: Logit-Koeffizient je Segment gegen das Referenzsegment, Standardfehler, Odds "
@@ -371,13 +377,31 @@ def _segments(t, code, lc):
                   score=v.get("score"), begrenzt=bool(v.get("separated")))
     means = lc.get("hb_means")
     if means:
-        for row in means.get("rows") or []:
-            levels = row.get("levels") or [{"label": row.get("label"), "values": row.get("values")}]
-            for n, lv in enumerate(levels, start=1):
-                for c, name, v in per_segment(lv.get("values")):
-                    t.add("segmente_parameter.csv", frage=code, segment=c + 1, name=name, art="hb_mittel",
-                          merkmal=_text(row.get("label")) if row.get("levels") else "", stufe_nr=n if row.get("levels") else None,
-                          stufe=_text(lv.get("label")), wert=v)
+        # the individual HB values per segment (segments._hb_means): mean, SD and n of the people whose most likely
+        # segment it is; CBC and ACBC on both scales. A view kept in the earlier form has the weighted means only.
+        def hb_rows(rows, sizes, skala):
+            for row in rows or []:
+                levels = row.get("levels") or [{"label": row.get("label"), "values": row.get("values"), "sd": row.get("sd")}]
+                for n, lv in enumerate(levels, start=1):
+                    sds = lv.get("sd") or []
+                    for c, name, v in per_segment(lv.get("values")):
+                        t.add("segmente_parameter.csv", frage=code, segment=c + 1, name=name, art="hb_mittel",
+                              merkmal=_text(row.get("label")) if row.get("levels") else "",
+                              stufe_nr=n if row.get("levels") else None, stufe=_text(lv.get("label")), wert=v,
+                              sd=sds[c] if c < len(sds) else None, personen=sizes[c] if c < len(sizes) else None,
+                              skala=skala)
+
+        sizes = means.get("n") or []
+        hard = means.get("form") is not None
+        hb_rows(means.get("rows"), sizes, "roh" if hard and means.get("kind") != "maxdiff" else None)
+        if means.get("diffs"):
+            hb_rows(means["diffs"].get("rows"), means["diffs"].get("n") or [], "normiert")
+        for row in means.get("importance") or []:
+            sds = row.get("sd") or []
+            for c, name, v in per_segment(row.get("values")):
+                t.add("segmente_parameter.csv", frage=code, segment=c + 1, name=name, art="hb_wichtigkeit",
+                      skala=None, merkmal=_text(row.get("label")), wert=v, sd=sds[c] if c < len(sds) else None,
+                      personen=sizes[c] if c < len(sizes) else None)
     cov = res.get("covariates")
     if cov:
         for row in cov.get("rows") or []:
