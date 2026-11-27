@@ -153,4 +153,35 @@ def test_the_entries_are_cases_and_events():
              {"seq": 7, "kind": "fieldclosed", "reason": "manual", "at": "2026-10-12T08:47:26Z"}]
     c = seal.counts(rows)
     assert c["cases"] == 5 and c["deleted"] == 1 and c["remaining"] == 4
-    assert c["entries"] == {"total": 7, "cases": 5, "amended": 0, "deleted": 1, "events": 1}
+    assert c["entries"] == {"total": 7, "cases": 5, "amended": 0, "deleted": 1, "events": 1,
+                            "by_event": {"field": 1}}
+
+
+def test_the_table_of_entries_names_cases_and_events_per_column(app):
+    """The table "Einträge der Kette" (Philipp, 2026-11-15): one row per kind of entry that occurs in one of the
+    columns, the sum below, and a start of the fieldwork after its end reads as a restart."""
+    import re
+
+    from flask import render_template_string
+
+    from app import seal
+
+    rows = [{"seq": n, "kind": "sealed", "status": "completed"} for n in range(1, 6)]
+    rows += [{"seq": 6, "kind": "deleted", "ref": 3, "status": "completed", "reason": "erasure_self"},
+             {"seq": 7, "kind": "fieldclosed", "reason": "manual", "at": "2026-10-12T08:47:26Z"},
+             {"seq": 8, "kind": "fieldstarted", "at": "2026-11-09T07:00:00Z"}]
+    assert seal.counts(rows)["entries"]["by_event"] == {"field": 2}
+    with app.test_request_context("/"):
+        page = render_template_string(
+            '{% import "surveys/_seal_parts.html" as sp with context %}{{ sp.entries(cols) }}',
+            cols=[("Stand des Prüfcodes", seal.counts(rows[:7])), ("aktueller Stand", seal.counts(rows))])
+    table = [re.sub(r"<[^>]+>", " ", r).split() for r in re.findall(r"<tr.*?</tr>", page, re.S)]
+    assert table == [["Einträge", "der", "Kette", "Stand", "des", "Prüfcodes", "aktueller", "Stand"],
+                     ["Fälle", "5", "5"], ["Löschvermerke", "1", "1"],
+                     ["Start/Ende", "der", "Feldphase", "1", "2"], ["Summe", "7", "8"]]  # no row of zeros
+    assert "Feldphase geschlossen 12.10.2026; Feldphase wieder begonnen 09.11.2026." in page
+    with app.test_request_context("/"):  # a kind of entry the table does not know yet still adds up
+        page = render_template_string(
+            '{% import "surveys/_seal_parts.html" as sp with context %}{{ sp.entries(cols) }}',
+            cols=[("x", seal.counts(rows[:5] + [{"seq": 6, "kind": "later"}]))])
+    assert re.search(r"weitere Ereignisse</th>\s*<td class=\"num\">1</td>", page) and "Feldphase" not in page.split("</table>")[1]
