@@ -402,6 +402,7 @@ NO_STEP = {
     "editor.item_images_review": "suggestions, applied by item_images_review_apply", "editor.review_asset": "image files",
     "editor.image_rights": "a rights declaration kept with the image file (Asset.rights), not the questionnaire",
     "editor.text_review_item": "suggestions, applied by text_review_apply", "editor.text_review_survey": "suggestions, applied by text_review_apply",
+    "editor.ai_field": "suggestions, applied by ai_field_apply",
     "translations.confirm": "marks translations as checked, changes no text",
     "flow_page.quota_steer": "steers a running survey: no history there",
     "flow_page.quota_recount": "counts", "flow_page.quota_share_add": "links", "flow_page.quota_share_revoke": "links",

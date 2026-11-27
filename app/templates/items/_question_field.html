@@ -5,7 +5,10 @@
 <div class="question-field">
   <div class="question-field-head"><label class="label-title" for="question-{{ item.id }}">{{ question_label|default(de_en("Fragetext", "Question text")) }}</label>
     {% if question_hint is defined %}<span class="hint">{{ question_hint }}</span>{% endif %}
-    {% if example and not item.lang_texts(lang).get("question") %}<button type="button" class="link-button small" data-take-example="{{ example }}" data-for="question-{{ item.id }}">{{ de_en("übernehmen", "use it") }}</button>{% endif %}</div>
+    {% if example and not item.lang_texts(lang).get("question") %}<button type="button" class="link-button small" data-take-example="{{ example }}" data-for="question-{{ item.id }}">{{ de_en("übernehmen", "use it") }}</button>{% endif %}
+    {# three wordings to choose from (experimental "ai_fields", app/ai_fields.py): only where the field is a plain
+       question text (no instruction, heading or caption) and the element page says so (ai_parts) #}
+    {% if question_label is not defined and "question" in (ai_parts|default([])) %}{% from "_icons.html" import icon as ai_icon %}<button type="button" class="button button-ai button-small ai-field-open" data-ai-field="question" aria-haspopup="dialog" title="{{ de_en('Drei Formulierungen des Fragetexts zur Wahl; ein KI-Aufruf', 'Three wordings of the question text to choose from; one AI call') }}">{{ ai_icon("sparkles", 16) }} {{ de_en("Formulieren", "Suggest wording") }}</button>{% endif %}</div>
   <textarea name="question" id="question-{{ item.id }}" rows="3" data-var-target{% if question_rich|default("inline") %} data-rich="{{ question_rich|default("inline") }}"{% endif %}>{{ item.lang_texts(lang).get("question", "") }}</textarea>
 </div>
 <p class="muted small format-hint">{{ de_en("Formatierung:", "Formatting:") }} {% if question_rich|default("inline") == "block" %}{{ de_en("Leerzeile = neuer Absatz, „- “ = Aufzählung,", "blank line = new paragraph, “- ” = list,") }} {% endif %}{{ de_en(format_hint(), "**bold**, *italic*, `code`, H~2~O subscript, x^2^ superscript; also <u>, <small>, <sub>, <sup>, <br>") }}</p>

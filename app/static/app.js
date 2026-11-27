@@ -4140,6 +4140,12 @@ document.addEventListener("change", function (e) {
       }
     }
 
+    // for a script that acts on the saved state (the AI help at the fields): what is typed is saved first; resolves
+    // when no save is under way any more
+    form.autosaveFlush = function () {
+      var p = save(waiting);
+      return Promise.resolve(saving || p).then(function () { return saving || null; });
+    };
     // on the document: a field with form="…" stands outside of its form and its events never pass through it
     document.addEventListener("input", function (e) {
       if (!mine_(e.target)) return;
@@ -4169,7 +4175,7 @@ document.addEventListener("change", function (e) {
     form.addEventListener("click", function (e) {
       var b = e.target.closest("button[type=button]");
       // the drawing of the model (model.js) saves through its own button (data-model-save), not with each of its buttons
-      if (!b || b.closest("[data-cj-tabs], .rt-bar, [data-autosave-bar], [data-term], [data-learn-hide], .plan-model")) return;
+      if (!b || b.closest("[data-cj-tabs], .rt-bar, [data-autosave-bar], [data-term], [data-learn-hide], .plan-model, [data-ai-field]")) return;
       // a button may name its step in full ("Spalte 2 entfernt", data-undo-what) instead of "… geändert"
       var done = b.getAttribute("data-undo-what");
       setTimeout(function () { save({ what: done || what(form, b), merge: "", done: !!done }); }, 60);
@@ -7279,3 +7285,245 @@ document.addEventListener("change", function (e) {
   var button = input.form.querySelector("button:not([type=button])");
   if (button) button.classList.toggle("button-secondary", !chosen);
 });
+
+// AI help at the fields of one question (experimental "ai_fields": app/ai_fields.py, routes editor.ai_field and
+// ai_field_apply, the buttons [data-ai-field] of templates/editor/item.html and the element types' editors).
+// "Formulieren" at the question text: what the question should capture, then three wordings as radio buttons,
+// "Einsetzen" replaces the question text. "Vorschlagen" at the answer options or statements: rows to tick (ticked at
+// first), "n anhängen" appends them, "Weitere" asks for more without repeating what is shown. A keyword that names a
+// construct shows the construct with "Aus den Konstrukten einfügen" before any AI call. Nothing changes before the
+// take-over; that is one step for "Rückgängig", and the page loads anew with it.
+(function () {
+  var conf = document.querySelector("[data-ai-fields]");
+  if (!conf || !window.HTMLDialogElement || !window.aiFetch) return;
+  var form = document.querySelector("form.item-editor");
+  var TEXT = {
+    question: { title: de_en("Fragetext formulieren", "Suggest a wording of the question text"),
+                ask: de_en("Was soll die Frage erfassen?", "What should the question capture?"),
+                go: de_en("Formulieren", "Suggest wording"),
+                busy: de_en("Wird formuliert … (bis zu 1 Minute)", "Wording … (up to 1 minute)") },
+    options: { title: de_en("Antwortoptionen vorschlagen", "Suggest answer options"), ask: "",
+               go: de_en("Vorschlagen", "Suggest"),
+               busy: de_en("Wird vorgeschlagen … (bis zu 1 Minute)", "Suggesting … (up to 1 minute)") },
+    statements: { title: de_en("Aussagen vorschlagen", "Suggest statements"),
+                  ask: de_en("Was sollen die Aussagen messen?", "What should the statements measure?"),
+                  go: de_en("Vorschlagen", "Suggest"),
+                  busy: de_en("Wird vorgeschlagen … (bis zu 1 Minute)", "Suggesting … (up to 1 minute)") }
+  };
+  var dialog = null, part = null, seen = [], rows = [], busy = false, own = false, opener = null;
+  function make(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function q(sel) { return dialog.querySelector(sel); }
+  function build() {
+    dialog = make("dialog", "ai-dialog ai-field-dialog");
+    dialog.setAttribute("aria-labelledby", "ai-field-title");
+    dialog.innerHTML =
+      '<h2 id="ai-field-title"></h2>' +
+      '<div class="ai-field-ask" data-ask>' +
+        '<label class="label-title" for="ai-field-idea" data-ask-label></label>' +
+        '<input type="text" id="ai-field-idea" maxlength="500" autocomplete="off" aria-describedby="ai-field-idea-hint">' +
+        '<span class="hint" id="ai-field-idea-hint" data-ask-hint></span>' +
+        '<div class="row-fields ai-field-more" data-more hidden>' +
+          '<label>' + de_en("Anzahl", "Number") + ' <input type="number" min="1" max="15" value="3" class="narrow" data-n></label>' +
+          '<label class="check"><input type="checkbox" data-reverse> ' + de_en("etwa die Hälfte umgepolt", "about half reverse-keyed") + '</label>' +
+        '</div>' +
+      '</div>' +
+      '<p class="ai-field-status small" data-status role="status" hidden></p>' +
+      '<div class="ai-field-list" data-list></div>' +
+      '<p class="ai-error small" data-fail role="alert" hidden></p>' +
+      '<div class="ai-field-actions">' +
+        '<button type="button" class="button" data-take hidden></button>' +
+        '<button type="button" class="button button-ai" data-go></button>' +
+        '<button type="button" class="button button-secondary" data-cancel>' + de_en("Abbrechen", "Cancel") + '</button>' +
+      '</div>' +
+      '<p class="ai-field-foot small"></p>';
+    var foot = dialog.querySelector(".ai-field-foot");
+    Array.prototype.forEach.call(conf.children, function (c) { foot.appendChild(c.cloneNode(true)); });
+    document.body.appendChild(dialog);
+    q("[data-cancel]").addEventListener("click", function () { dialog.close(); });
+    q("[data-go]").addEventListener("click", function () { request(); });
+    q("[data-take]").addEventListener("click", take);
+    q("#ai-field-idea").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); if (!busy) request(); }
+    });
+    // another keyword is a new question: the constructs are looked up again, earlier suggestions go
+    q("#ai-field-idea").addEventListener("input", function () { own = false; });
+    q("[data-list]").addEventListener("change", count);
+    dialog.addEventListener("close", function () { if (opener && opener.focus) opener.focus(); });
+  }
+  function fail(text) {
+    var p = q("[data-fail]");
+    p.textContent = text || "";
+    p.hidden = !text;
+  }
+  function setBusy(on) {
+    busy = on;
+    var go = q("[data-go]"), status = q("[data-status]");
+    go.disabled = on; q("[data-take]").disabled = on || !chosen().length;
+    go.classList.toggle("ai-busy", on);
+    status.hidden = !on;
+    status.textContent = on ? TEXT[part].busy : "";
+  }
+  function chosen() {
+    return Array.prototype.filter.call(q("[data-list]").querySelectorAll("input[data-row]"), function (i) { return i.checked; })
+      .map(function (i) { return rows[parseInt(i.getAttribute("data-row"), 10)]; });
+  }
+  function count() {
+    var take = q("[data-take]"), n = chosen().length;
+    if (part === "question") take.textContent = de_en("Einsetzen", "Insert");
+    else take.textContent = de_en("{n} anhängen", "Append {n}").replace("{n}", n);
+    take.hidden = !rows.length;
+    take.disabled = busy || !n;
+  }
+  function open(which, by) {
+    if (!dialog) build();
+    part = which; seen = []; rows = []; own = false; opener = by;
+    var t = TEXT[part], idea = q("#ai-field-idea"), has = parseInt(conf.getAttribute("data-statements"), 10) > 0;
+    q("#ai-field-title").textContent = "✨ " + t.title;
+    q("[data-ask]").hidden = part === "options";
+    q("[data-ask-label]").textContent = t.ask;
+    q("[data-ask-hint]").textContent = (part === "statements" && has
+      ? de_en("Freiwillig: Ohne Angabe richtet sich die KI nach den vorhandenen Aussagen. ", "Optional: without it the AI follows the statements there. ") : "") +
+      de_en("Bitte keine personenbezogenen Daten eingeben.", "Please do not enter personal data.");
+    q("[data-more]").hidden = part !== "statements";
+    var field = form && form.querySelector('textarea[name="question"]');
+    idea.value = part === "question" && field ? field.value.replace(/\s+/g, " ").trim().slice(0, 500) : "";
+    q("[data-list]").innerHTML = "";
+    q("[data-go]").textContent = "✨ " + t.go;
+    fail(""); setBusy(false); count();
+    dialog.showModal();
+    if (part === "options") request(); else idea.focus();
+  }
+  function url(kind) { return conf.getAttribute(kind).replace("PART", part); }
+  function body() {
+    var data = new FormData();
+    data.append("csrf_token", csrfToken());
+    return data;
+  }
+  // what is typed on the page is saved first: the suggestions follow the saved state, and the page loads anew after
+  // a take-over
+  function saved() { return form && form.autosaveFlush ? form.autosaveFlush() : Promise.resolve(); }
+  function request() {
+    if (busy) return;
+    var data = body(), idea = q("#ai-field-idea").value.trim();
+    if (part === "question" && !idea) { fail(de_en("Bitte kurz beschreiben, was die Frage erfassen soll.", "Please describe briefly what the question should capture.")); return; }
+    data.append("idea", idea);
+    data.append("n", q("[data-n]").value || "3");
+    if (q("[data-reverse]").checked) data.append("reverse", "1");
+    if (own) data.append("own", "1");
+    seen.forEach(function (s) { data.append("seen", s); });
+    fail(""); setBusy(true);
+    saved().then(function () { return window.aiFetch(url("data-url"), { method: "POST", body: data }); })
+      .then(function (r) {
+        if ((r.headers.get("Content-Type") || "").indexOf("json") < 0) throw new Error(r.status);
+        return r.json();
+      })
+      .then(function (d) {
+        setBusy(false);
+        if (d.error || d.message) { fail(d.error || d.message); return; }
+        if (d.catalog) { catalog(d.catalog); return; }
+        if (d.variants) show(d.variants.map(function (v) { return { text: v }; }), true);
+        else show(d.options || d.statements || [], false);
+      })
+      .catch(function () {
+        setBusy(false);
+        fail(de_en("Keine Verbindung. Bitte erneut versuchen.", "No connection. Please try again."));
+      });
+  }
+  function badge(text) { return make("span", "badge", text); }
+  // replace: the three wordings of a question text take the place of the earlier ones; rows of a list are added
+  function show(found, replace) {
+    var list = q("[data-list]");
+    if (replace || list.querySelector(".ai-field-hit")) { list.innerHTML = ""; rows = []; }
+    found.forEach(function (row, n) {
+      var index = rows.length;
+      rows.push(row); seen.push(row.text);
+      var label = make("label", "ai-field-row"), input = make("input");
+      input.type = part === "question" ? "radio" : "checkbox";
+      input.name = "ai-field-row";
+      input.setAttribute("data-row", index);
+      input.checked = part === "question" ? n === 0 : true;
+      var text = make("span", "ai-field-text", row.text);
+      if (row.with_text) { text.appendChild(document.createTextNode(" ")); text.appendChild(badge(de_en("mit Textfeld", "with text field"))); }
+      if (row.exclusive) { text.appendChild(document.createTextNode(" ")); text.appendChild(badge(de_en("schließt andere aus", "excludes others"))); }
+      if (row.reverse) { text.appendChild(document.createTextNode(" ")); text.appendChild(badge(de_en("umgepolt", "reversed"))); }
+      label.appendChild(input); label.appendChild(text);
+      list.appendChild(label);
+    });
+    q("[data-go]").textContent = "✨ " + de_en("Weitere", "More");
+    count();
+    var first = list.querySelector("input[data-row]:checked") || list.querySelector("input[data-row]");
+    if (first) first.focus();
+  }
+  // the keyword names a construct: it is offered instead of home-made items; own suggestions on a second click
+  function catalog(hits) {
+    var list = q("[data-list]");
+    list.innerHTML = ""; rows = [];
+    list.appendChild(make("p", "small ai-field-hit-intro",
+      de_en("Dazu gibt es ein validiertes Instrument in den Konstrukten. Ein validiertes Instrument ist eigenen Formulierungen meist vorzuziehen.",
+            "There is a validated instrument for this among the constructs. A validated instrument is usually preferable to wordings of your own.")));
+    hits.forEach(function (hit) {
+      var box = make("div", "ai-field-hit"), head = make("div", "ai-field-hit-text");
+      head.appendChild(make("strong", "", hit.name));
+      var more = [hit.by, hit.items ? de_en("{n} Items", "{n} items").replace("{n}", hit.items) : "", hit.how].filter(Boolean).join(" · ");
+      if (more) head.appendChild(make("span", "hint", more));
+      var button = make("button", "button button-small button-secondary", de_en("Aus den Konstrukten einfügen", "Insert from the constructs"));
+      button.type = "button";
+      button.addEventListener("click", function () {
+        button.disabled = true;
+        saved().then(function () {
+          var f = make("form");
+          f.method = "post"; f.action = hit.url; f.hidden = true;
+          var fields = { csrf_token: csrfToken() };
+          Object.keys(hit.fields || {}).forEach(function (k) { fields[k] = hit.fields[k]; });
+          Object.keys(fields).forEach(function (k) {
+            var i = make("input"); i.type = "hidden"; i.name = k; i.value = fields[k]; f.appendChild(i);
+          });
+          document.body.appendChild(f);
+          f.submit();
+        });
+      });
+      box.appendChild(head); box.appendChild(button);
+      list.appendChild(box);
+    });
+    own = true;
+    q("[data-go]").textContent = "✨ " + (part === "question" ? de_en("Trotzdem formulieren", "Suggest wording anyway")
+                                                                : de_en("Trotzdem vorschlagen", "Suggest anyway"));
+    count();
+    var first = list.querySelector("button");
+    if (first) first.focus();
+  }
+  function take() {
+    var picked = chosen();
+    if (busy || !picked.length) return;
+    var data = body();
+    if (part === "question") data.append("text", picked[0].text);
+    else data.append("rows", JSON.stringify(picked));
+    fail(""); setBusy(true);
+    q("[data-status]").textContent = de_en("Wird übernommen …", "Taking over …");
+    saved().then(function () { return fetch(url("data-apply-url"), { method: "POST", body: data, credentials: "same-origin" }); })
+      .then(function (r) {
+        if ((r.headers.get("Content-Type") || "").indexOf("json") < 0) throw new Error(r.status);
+        return r.json();
+      })
+      .then(function (d) {
+        if (d.done) { window.aiGo(d.url); return; }
+        setBusy(false);
+        fail(d.error || de_en("Das hat nicht geklappt. Bitte erneut versuchen.", "That did not work. Please try again."));
+      })
+      .catch(function () {
+        setBusy(false);
+        fail(de_en("Keine Verbindung. Bitte erneut versuchen.", "No connection. Please try again."));
+      });
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-ai-field]");
+    if (!b) return;
+    e.preventDefault();
+    open(b.getAttribute("data-ai-field"), b);
+  });
+})();

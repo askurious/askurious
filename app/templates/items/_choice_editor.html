@@ -38,7 +38,8 @@
       {% endfor %}
     {% endif %}
     </tbody>
-  </table></div>
+  </table>{# beside "+ Option" (app.js puts it after the table): further options from the AI, to tick (app/ai_fields.py) #}
+  {% if structural and "options" in (ai_parts|default([])) %}{% from "_icons.html" import icon as ai_icon %}<button type="button" class="button button-ai button-small ai-field-open" data-ai-field="options" aria-haspopup="dialog" title="{{ de_en('Fehlende Antwortoptionen zum Anhaken; sie werden angehängt, nichts wird ersetzt', 'Missing answer options to tick; they are appended, nothing is replaced') }}">{{ ai_icon("sparkles", 16) }} {{ de_en("Vorschlagen", "Suggest") }}</button>{% endif %}</div>
   {{ row_list_hint() }}
   {% if item.kind.supports_search and structural %}
   {# a long list in one go (single choice, mostly for the search field): one line per option, "Beschriftung" or

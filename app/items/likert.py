@@ -199,7 +199,8 @@ class Likert(ItemType):
     import_rules = {"points": r_int(POINTS[0], POINTS[-1]), "anchors": r_one(*(k for k, _ in ANCHOR_CHOICES)),
                     "labeling": r_one("full", "endpoints"), "label_display": r_one("each", "once"), "randomize": r_flag,
                     "statements": r_rows(300, id=r_id, code=r_text(64), reverse=r_maybe(r_flag), subscale=r_maybe(r_text(100)),
-                                         check=r_maybe(r_int(1, POINTS[-1])), when=rows.r_when, src=carry.r_src),
+                                         check=r_maybe(r_int(1, POINTS[-1])), when=rows.r_when, src=carry.r_src,
+                                         ai=r_maybe(r_flag)),
                     "carry": carry.r_carry, "dont_know": r_flag,
                     "numbers": r_one("", "1", "0", "center"), "emoji": r_list(10, r_text(8)), "own_scale": r_flag}
     uses_answers = True  # which statements a person sees can depend on earlier answers (config "when", app/rows.py)
@@ -345,6 +346,8 @@ class Likert(ItemType):
                     statements.append({"id": sid, "code": code.strip(), "reverse": False, "check": check})
                 else:
                     statements.append({"id": sid, "code": code.strip(), "reverse": sid in reverse})
+                    if (before.get(sid) or {}).get("ai"):  # appended from an AI suggestion (app/ai_fields.py): the
+                        statements[-1]["ai"] = True  # mark stays with the statement, whatever is typed into it
                     subscale = scales.subscale_from_form(form, "stmt", sid, before.get(sid))
                     if subscale:  # an instrument with several dimensions (constructs, or ticked in the editor)
                         statements[-1]["subscale"] = subscale
@@ -604,7 +607,9 @@ class Likert(ItemType):
             cols.append((self.statement_code(item, i, s), label + (" (rekodiert)" if s.get("reverse") else "")
                          + (f" [Aufmerksamkeitsprüfung, richtig: {s['check']}]" if s["id"] in self.checks(item) else "")
                          + (f" [nur gezeigt, wenn {rows.text(item, s)}; {rows.NOT_SHOWN} = nicht gezeigt]" if s.get("when") else "")
-                         + (" [KI-generiert, nicht validiert]" if read_cfg(item).get("ai") and self.ai_scale else "")))
+                         # a whole AI scale (config "ai"), or one statement appended from a suggestion (its "ai")
+                         + (" [KI-generiert, nicht validiert]"
+                            if (read_cfg(item).get("ai") and self.ai_scale) or s.get("ai") else "")))
         return cols
 
     def export_values(self, item, answer):

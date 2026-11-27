@@ -251,6 +251,12 @@
   {% endif %}
 </form>
 
+{% if ai_parts %}
+{# the popup of "Formulieren" and "Vorschlagen" at the fields (app.js, "AI help at the fields"; app/ai_fields.py) #}
+<div hidden data-ai-fields data-url="{{ url_for('editor.ai_field', survey_id=survey.id, item_id=item.id, part='PART') }}"
+     data-apply-url="{{ url_for('editor.ai_field_apply', survey_id=survey.id, item_id=item.id, part='PART') }}"
+     data-statements="{{ (item.lang_texts(lang).get('statements') or {}).values()|select|list|length }}"><span class="hint">{{ de_en("Die Anfrage geht an {to}: die Texte dieses Elements und der Zusammenhang der Befragung, keine Antworten.", "The request goes to {to}: the texts of this element and the context of the survey, no answers.", to=ai_recipient()) }}</span> {{ ai_access_line() }}</div>
+{% endif %}
 {# drawn anew after a save that changes them (app.js, autosave: d.stale), e.g. the images after "Anzeige je Option" #}
 <div data-item-panels>
 {% if kind.has_image %}<div {% if kind.editor_tabs %}data-cj-tab="display"{% endif %}>{% include "items/image/assets.html" %}</div>{% endif %}
