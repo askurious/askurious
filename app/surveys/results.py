@@ -8,6 +8,7 @@ from app import autosave, heavy, report_jobs, undo
 from app.extensions import db
 from app.lang import de_en
 from app.models import utcnow
+from app.surveys import analysis
 from app.surveys.base import bp, data_pool, get_survey, pool_counts, pool_frozen, pool_unfinished, pool_frozen_note, stored_pool
 from app.surveys.estimates import _hb_part, _lc_part, _omega_part, _sim_part
 from app.surveys.field import _board_tests, _diary_scales, _diary_time
@@ -340,7 +341,11 @@ def results(survey_id):
                                hyp_pool=hyp_pool,
                                computed_at=computed_at, from_store=kept is not None,
                                quota_report=quotas.report(survey, marked=data.get("quota_marked"), shown=True) if survey.quotas else [],
-                               by_source=pool_counts(survey), unfinished=pool_unfinished(survey))
+                               by_source=pool_counts(survey), unfinished=pool_unfinished(survey),
+                               # the analyses with a page of their own (surveys/analysis.py); not for one run of a
+                               # live vote or a filtered view, whose estimates are left out
+                               analyses=[] if run or only is not None else analysis.rows(survey, data),
+                               analysis_args=analysis.pool_args())
     finally:
         progress.clear(token, current_user.id)
 

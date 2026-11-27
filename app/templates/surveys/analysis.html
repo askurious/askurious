@@ -1,0 +1,100 @@
+{# The page of one analysis of the conjoint family below "Ergebnisse" (surveys/analysis.py): CBC, ACBC, ACA,
+   ratings-based conjoint, MaxDiff or paired comparison. Flat sections, each a panel with its heading, folds at most one
+   level deep: importance and part-worths, the simulator, the segments, the model quality, the details, the downloads.
+   The parts are those the results page showed inside the question (surveys/_cbc_results.html and its siblings, asked
+   for part by part with "an"); static/hb.js, segments.js, simulator.js and ww.js fetch their parts from this page
+   (part_url). Needs: survey, r, e (entry), kind, item, method, f, sims, notes, cited, back_args. #}
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import num, share_bar, share_n, content_lang %}
+{% from "_learn.html" import why, term %}
+{% from "surveys/_results_macros.html" import fn with context %}
+{% block title %}{{ method }}: {{ (e.question|striptags|readable_placeholders|truncate(110)) or item.code }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+{% set question = (e.question|striptags|readable_placeholders|truncate(110)) or item.code %}
+{% set part_file = {"cbc": "surveys/_cbc_results.html", "acbc": "surveys/_acbc_results.html", "aca": "surveys/_aca_results.html",
+                    "cva": "surveys/_cva_results.html", "maxdiff": "surveys/_maxdiff_results.html", "paired": "surveys/_paired_results.html"}[kind] %}
+{% set p = e[kind] %}
+{# what the question has: people with answers, and which of the sections #}
+{% set answered = (p.counts.persons if kind in ("cbc", "acbc") else p.persons if kind in ("maxdiff", "paired") else (p.model is not none and p.model)) %}
+{% set has_sim = kind != "paired" and answered %}
+{% set has_segments = answered and p.lc %}
+{% set has_quality = answered and (p.hb or p.holdout or (kind == "paired" and p.consistency) or (kind == "cva" and p.model)) %}
+{% set has_details = answered and kind in ("cbc", "acbc", "maxdiff", "paired") %}
+{% set editor = survey.can(current_user, "editor") %}
+<div class="tabpage-head">{% set active_tab = "results" %}{% set sub_page = true %}{% set help_key = "conjoint_analysis" %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<a class="back-link" href="{{ url_for('surveys.results', survey_id=survey.id, **back_args) }}#res-{{ item.code }}">{{ icon("back", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
+<h1>{{ method }}: <span{{ content_lang(survey.default_language) }}>{{ question }}</span> <span class="hint">{{ item.code }} · {{ item.kind.label }}</span></h1>
+<div class="tabpage-grid results-page analysis-page" data-analysis-item="{{ item.id }}">
+{# the line of the basis: what the numbers rest on, as on the results page (its box "Grundlage und Ansicht" stays there) #}
+<div class="analysis-state">
+  <p class="res-state">{{ de_en("Grundlage", "Basis") }}: <strong>{{ r.n_rows|thousands }}</strong> {{ de_en("Teilnahmen", "participations") if r.n_rows != 1 else de_en("Teilnahme", "participation") }}
+    {%- if "dummy" in f.sources and r.n_rows %} <span class="badge" title="{{ de_en('Der Datenpool enthält simulierte Teilnahmen; sie folgen dem Studienplan', 'The data pool holds simulated participations; they follow the research plan') }}">{{ de_en("mit Dummy-Daten", "with dummy data") }}</span>{% endif %}
+    {%- if r.marked %} · {% if f.drop %}{{ de_en("ohne {n} Markierte", "without {n} marked", n=r.marked|thousands) }}{% else %}{{ de_en("mit {n} Markierten", "with {n} marked", n=r.marked|thousands) }}{% endif %}{% endif %}
+    · {{ de_en("gewichtet", "weighted") if f.weighted and r.weighting else de_en("ungewichtet", "unweighted") }}
+    · <a href="{{ url_for('surveys.results', survey_id=survey.id, **back_args) }}#pool">{{ de_en("Datenpool und Ansicht ändern", "Change data pool and view") }}</a></p>
+  {% with an="head" %}{% include part_file %}{% endwith %}
+</div>
+
+{% if answered %}
+<section class="panel" id="an-main">
+  <h2>{{ de_en("Wichtigkeit der Aussagen", "Importance of the statements") if kind == "maxdiff" else de_en("Werte der Optionen", "Values of the options") if kind == "paired" else de_en("Wichtigkeit und Teilnutzen", "Importance and part-worths") }}</h2>
+  {% with an="main" %}{% include part_file %}{% endwith %}
+</section>
+
+{% if has_sim %}
+{# the simulator carries its own heading (it is fetched anew as a whole); nothing to show yet: no panel (app.css) #}
+<section class="panel analysis-sim" id="an-sim">
+  {% with an="sim" %}{% include part_file %}{% endwith %}
+</section>
+{% endif %}
+
+{% if has_segments %}
+<section class="panel" id="lc-fold-{{ item.id }}">
+  <h2>{{ de_en("Segmente", "Segments") }}</h2>
+  {% with an="segments", lc_flat=true %}{% include part_file %}{% endwith %}
+</section>
+{% endif %}
+
+{% if has_quality %}
+<section class="panel" id="quality-{{ item.id }}">
+  <h2>{{ de_en("Modellgüte", "Model quality") }}</h2>
+  {% with an="quality" %}{% include part_file %}{% endwith %}
+</section>
+{% endif %}
+
+{% if has_details %}
+<section class="panel" id="an-details">
+  <h2>{{ de_en("Details", "Details") }}</h2>
+  {% with an="details" %}{% include part_file %}{% endwith %}
+</section>
+{% endif %}
+
+{# the downloads of this analysis that exist elsewhere on the page or on "Export", in one place #}
+{% set ww = p.ww if kind in ("cbc", "acbc") else none %}
+{% set sim = sims.get(item.id) if sims else none %}
+{% set long_csv = editor and item.kind.long_export %}
+{% if long_csv or (ww and ww.result) or (sim and sim.scenarios) %}
+<section class="panel" id="an-downloads">
+  <h2>{{ de_en("Herunterladen", "Download") }}</h2>
+  <p class="button-row">
+    {% if long_csv %}<a class="button button-secondary button-small" href="{{ url_for('surveys.export_conjoint', survey_id=survey.id, item_id=item.id) }}" title="{{ item.kind.long_export_label }}">{{ icon("download", 16) }} {{ de_en("Langformat (CSV)", "Long format (CSV)") }}</a>{% endif %}
+    {% if sim and sim.scenarios %}<a class="button button-secondary button-small" href="{{ url_for('surveys.results_table', survey_id=survey.id, lang=ui_language()) }}">{{ icon("download", 16) }} {{ de_en("Szenarien als Word-Tabelle", "Scenarios as Word table") }}</a>{% endif %}
+    {% if ww and ww.result %}<a class="button button-secondary button-small" href="{{ url_for('surveys.results_ww_csv', survey_id=survey.id, item_id=item.id) }}">{{ icon("download", 16) }} {{ de_en("Wechselwirkungen (CSV)", "Interactions (CSV)") }}</a>{% endif %}
+  </p>
+  <p class="muted small">{{ de_en("Die individuellen Nutzen stehen als Spalten im Datensatz; alle Formate gibt es im Reiter", "The individual utilities are columns of the data set; every format is on the tab") }} <a href="{{ url_for('surveys.data', survey_id=survey.id) }}">Export</a>.</p>
+</section>
+{% endif %}
+{% endif %}
+
+{% if cited %}
+{% from "_sources.html" import grouped %}{{ grouped(cited, de_en("Literatur zu dieser Seite", "References for this page")) }}
+{% endif %}
+</div>
+<script src="{{ url_for('static', filename='simulator.js') }}" defer></script>
+<script src="{{ url_for('static', filename='segments.js') }}" defer></script>
+<script src="{{ url_for('static', filename='hb.js') }}" defer></script>
+<script src="{{ url_for('static', filename='ww.js') }}" defer></script>
+<script src="{{ url_for('static', filename='figure_png.js') }}" defer></script>
+{% endblock %}

@@ -12,8 +12,8 @@
   {% if request.args.get("all") %}<input type="hidden" name="all" value="1">{% endif %}
   {% if request.args.get("drop") %}<input type="hidden" name="drop" value="1">{% endif %}
   {% if f.weighted %}<input type="hidden" name="gewichtet" value="1">{% endif %}{% endmacro %}
-<section class="lc-part" id="lc-part-{{ e.item.id }}" data-lc-item="{{ e.item.id }}" data-lc-url="{{ url_for('surveys.results', survey_id=survey.id) }}">
-<h3 class="res-group-head" id="lc-{{ e.item.id }}">{{ de_en("Segmente (latente Klassen)", "Segments (latent classes)") }}{{ fn("lc") }}</h3>
+<section class="lc-part" id="lc-part-{{ e.item.id }}" data-lc-item="{{ e.item.id }}" data-lc-url="{{ part_url|default(url_for('surveys.results', survey_id=survey.id)) }}">
+<h3 class="res-group-head" id="lc-{{ e.item.id }}">{{ de_en("Latente Klassen", "Latent classes") }}{{ fn("lc") }}</h3>
 <p class="lc-status muted small" role="status" aria-live="polite"></p>
 {% if l.state == "running" %}
 {% set done = ((l.marker.progress or 0) * 100)|round|int %}
@@ -154,6 +154,8 @@
   </tbody>
 </table></div>
 {% if res.price and res.price.wtp is defined and true in res.price.wtp %}
+{# on the page of the analysis (lc_flat) one fold; inside the question of the results page it stood open #}
+{% if lc_flat is defined and lc_flat %}<details class="res-dist"><summary>{{ de_en("Zahlungsbereitschaft je Segment", "Willingness to pay per segment") }}</summary>{% endif %}
 <p class="res-group-head">{{ term("wtp", de_en("Zahlungsbereitschaft", "Willingness to pay")) }} {{ de_en("je Segment", "per segment") }} <span class="hint">{{ de_en("je Stufe gegenüber dem Mittel des Merkmals, 95-%-Intervall nach Fieller; nur bei deutlich negativem Preiskoeffizienten", "per level against the mean of the attribute, 95% interval after Fieller; only with a clearly negative price coefficient") }}</span></p>
 {% set weak = [] %}{% for z in res.price.weak or [] %}{% if z %}{% set _ = weak.append(seg[loop.index0].name ~ " (|z| = " ~ num(z, 1) ~ ")") %}{% endif %}{% endfor %}{% if weak %}<p class="muted small wtp-weak">{{ de_en("Preiskoeffizient nur knapp bestimmt in {which}: Die Zahlungsbereitschaft fällt dort eher zu klein aus, Intervall nach Fieller beachten (Hole, 2007; Grenze |z| = 4 von Askurious festgelegt).", "Price coefficient only narrowly determined in {which}: the willingness to pay tends to come out too small there, mind the interval after Fieller (Hole, 2007; limit |z| = 4 set by Askurious).", which=weak|join(", ")) }}</p>{% endif %}
 <div class="res-scroll lc-scroll"><table class="res-table lc-table">
@@ -167,20 +169,22 @@
   {% endfor %}
   </tbody>
 </table></div>
+{% if lc_flat is defined and lc_flat %}</details>{% endif %}
 {% endif %}
 {% endif %}
 {% if res.K > 1 and l.profile_choices is defined %}
+{% if lc_flat is defined and lc_flat %}<details class="res-dist"{% if l.profile_ids %} open{% endif %}><summary>{{ de_en("Segmente beschreiben", "Describe segments") }} <span class="hint">{% if l.profile_ids|length == 1 %}{{ de_en("1 Frage gewählt", "1 question chosen") }}{% else %}{{ de_en("{n} Fragen gewählt", "{n} questions chosen", n=l.profile_ids|length) }}{% endif %}</span></summary>{% endif %}
 {% set lc_weighted = f.weighted and l.profile_weighted %}{% set lc_bch = l.bch and not lc_weighted %}
 <p class="res-group-head" id="lc-profile-{{ e.item.id }}">{{ de_en("Segmente beschreiben", "Describe segments") }} <span class="hint">{{ de_en("Antworten auf andere Fragen je Segment,", "answers to other questions per segment,") }} {% if lc_bch %}{{ de_en("mit BCH-Gewichten, die die Fehlzuordnung herausrechnen", "with BCH weights that correct for misassignment") }}{% else %}{{ de_en("jede Person nach ihrer Zugehörigkeitswahrscheinlichkeit gewichtet (unterschätzt Unterschiede)", "each person weighted by their membership probability (underestimates differences)") }}{% if lc_weighted %}{{ de_en(", dazu mit der Gewichtung der Seite", ", plus with the weighting of the page") }}{% endif %}{% endif %}{{ fn("lc_profile") }}</span></p>
 {{ why("segments_describe") }}
 {% if editor and l.profile_choices %}
 <form method="post" action="{{ url_for('surveys.results_lc_choose', survey_id=survey.id, item_id=e.item.id) }}" class="lc-profile-form">
   {{ pool_fields() }}<input type="hidden" name="lc_prof_sent" value="1">
-  <details class="res-dist"{% if not l.profile_ids %} open{% endif %}><summary>{{ de_en("Fragen wählen ({n} von höchstens 8)", "Choose questions ({n} of at most 8)", n=l.profile_ids|length) }}</summary>
+  {% if lc_flat is defined and lc_flat %}<div class="lc-pick-flat"><p class="res-group-head">{{ de_en("Fragen wählen ({n} von höchstens 8)", "Choose questions ({n} of at most 8)", n=l.profile_ids|length) }}</p>{% else %}<details class="res-dist"{% if not l.profile_ids %} open{% endif %}><summary>{{ de_en("Fragen wählen ({n} von höchstens 8)", "Choose questions ({n} of at most 8)", n=l.profile_ids|length) }}</summary>{% endif %}
   <div class="lc-profile-pick">
   {% for id, label in l.profile_choices %}<label class="check"><input type="checkbox" name="lc_prof" value="{{ id }}"{% if id in l.profile_ids %} checked{% endif %}> {{ label }}</label>{% endfor %}
   </div>
-  <button class="button button-small">{{ de_en("Übernehmen", "Apply") }}</button></details>
+  <button class="button button-small">{{ de_en("Übernehmen", "Apply") }}</button>{% if lc_flat is defined and lc_flat %}</div>{% else %}</details>{% endif %}
 </form>
 {% endif %}
 {% set prof = l.profile_weighted if (f.weighted and l.profile_weighted) else l.profile %}
@@ -203,6 +207,7 @@
 </table></div>
 {% endfor %}
 {% if prof %}<p class="muted small">{% if lc_bch %}{{ de_en("Anteile und Mittelwerte mit BCH-Gewichten: Sie gleichen im Mittel aus, dass Personen nicht sicher einem Segment zugeordnet sind", "Shares and means with BCH weights: on average they make up for people not being assigned to a segment with certainty") }}{{ fn("lc_bch") }}. {{ de_en("Anteilige wie modale Zuordnung verwischen Unterschiede; korrigiert sind die BCH-Werte.", "Proportional as well as modal assignment blur differences; the BCH values are corrected.") }}{% if l.clipped %} {{ de_en("„gekappt“: Die BCH-Schätzung lag außerhalb von 0 bis 100 % (bei kleinen Segmenten oder seltenen Antworten möglich) und ist auf den Rand gesetzt.", "“clipped”: the BCH estimate lay outside 0 to 100% (possible with small segments or rare answers) and is set to the boundary.") }}{% endif %} {{ de_en("Die Tests rechnen mit denselben Gewichten und einem robusten Wald-Test über Personen (Varianz um das gemeinsame Mittel, als F-Test; so bleibt die Fehlerrate auch bei kleinen Segmenten und seltenen Antworten nahe 5 %); sie sind explorativ, ohne Korrektur für viele Tests. Erwartet eine Kombination aus Segment und Antwort weniger als 5 Personen, fasst der Test seltene Antworten zusammen oder entfällt.", "The tests use the same weights and a robust Wald test over people (variance around the common mean, as an F test; this keeps the error rate near 5% even with small segments and rare answers); they are exploratory, without correction for many tests. If a combination of segment and answer expects fewer than 5 people, the test merges rare answers or is dropped.") }}{% else %}{{ de_en("Anteile und Mittelwerte zählen jede Person in jedem Segment mit ihrer Zugehörigkeitswahrscheinlichkeit (anteilige Zuordnung). Das unterschätzt Unterschiede zwischen den Segmenten, wie die Zuordnung zum wahrscheinlichsten Segment auch.", "Shares and means count each person in each segment with their membership probability (proportional assignment). This underestimates differences between the segments, as does the assignment to the most likely segment.") }} {% if lc_weighted %}{{ de_en("Mit Gewichtung ohne BCH-Korrektur und ohne Tests; ohne Gewichtung zeigt die Seite die korrigierten BCH-Werte.", "With weighting, without BCH correction and without tests; without weighting the page shows the corrected BCH values.") }}{% else %}{{ de_en("Keine BCH-Korrektur und keine Tests: Die Segmente sind zu schlecht getrennt, um die Fehlzuordnung herauszurechnen.", "No BCH correction and no tests: the segments are separated too poorly to correct for misassignment.") }}{% endif %}{% endif %}{% if res.entropy is not none and res.entropy < 0.6 %} {{ de_en("Bei der geringen Trennschärfe (Entropie R² {e}) sind die Profile nur eine grobe Richtung.", "With the low separation (entropy R² {e}) the profiles are only a rough direction.", e=num(res.entropy)) }}{% endif %}</p>{% endif %}
+{% if lc_flat is defined and lc_flat %}</details>{% endif %}
 {% endif %}
 {% if l.hb_means %}
 {# the individual HB values per segment (segments._hb_means): since form 2 every person in their most likely segment,

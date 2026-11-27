@@ -106,7 +106,7 @@ def test_aggregate_logit_recovers_simulated_part_worths(app, client, survey):
         assert look[0]["byo_share"] > look[2]["byo_share"] and look[0]["accept_rate"] > look[2]["accept_rate"]
         assert abs(sum(lv["byo_share"] for lv in look) - 1) < 1e-9
         assert abs(sum(lv["win_share"] for lv in look) - 1) < 1e-9
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Zählwerte je Stufe" in html and "Aggregiertes Logit-Modell" in html and "Hierarchical Bayes" in html
     assert html.count('class="pw-chart pw-wide"') == 4 and "Wichtigkeit der Merkmale" in html  # one chart per attribute
 

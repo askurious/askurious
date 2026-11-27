@@ -39,7 +39,9 @@ TAB_ANCHORS = {
                "schedule": ("zeitplan-einer-tagebuchstudie", "schedule-of-a-diary-survey"),
                "field": ("11-datenerhebung", "11-data-collection"),
                "quality": ("12-qualitätssicherung", "12-quality-assurance"), "results": ("13-ergebnisse", "13-results"),
-               "boards": ("14-dashboards", "14-dashboards"), "data": ("15-export-und-offene-daten", "15-export-and-open-data")},
+               "boards": ("14-dashboards", "14-dashboards"), "data": ("15-export-und-offene-daten", "15-export-and-open-data"),
+               # a page below "Ergebnisse" with a section of its own (surveys/analysis.html, help_key)
+               "conjoint_analysis": ("conjoint-auswertung", "conjoint-analysis")},
     # one section per tab for the live poll and the interview guide too (concept "Befragungstypen im Vergleich"
     # 2026-10-17, T15)
     "live": {"settings": ("einstellungen-einer-live-abstimmung", "settings-of-a-live-poll"),

@@ -5,11 +5,15 @@
 {% set pc = e.paired %}
 {% if pc.persons %}
 {% set x = pc.model %}
+{# an: the part the page of the analysis asks for (surveys/analysis.html): "head" the line of the basis, "main" importance and part-worths, "sim" the simulator, "segments", "quality", "details" #}
+{% if an == "head" %}
 <p class="muted small">{{ de_en("{p} Personen, {k} beantwortete Paare.", "{p} people, {k} answered pairs.", p=pc.persons, k=pc.pairs) }}</p>
+{% endif %}
+{% if an == "main" %}
 {% if x and x.disconnected %}
 {% for w in x.warnings %}<p class="flash flash-warning">{{ w }}</p>{% endfor %}
 {% elif x %}{% set c = x.chart %}
-<h3 class="res-group-head cm-main-head">{{ de_en("Werte der Optionen", "Values of the options") }} <span class="hint">{{ de_en("Bradley-Terry-Modell", "Bradley-Terry model") }}</span>{{ fn("paired") }}</h3>
+<h3 class="res-group-head cm-main-head">{{ de_en("Bradley-Terry-Modell", "Bradley-Terry model") }}{{ fn("paired") }}</h3>
 {% for w in x.warnings %}<p class="flash flash-warning">{{ w }}</p>{% endfor %}
 <p class="res-group-head">{{ de_en("Werte", "Values") }} <span class="hint">{{ de_en("Summe 100; Linie: 95-%-Intervall", "sum 100; line: 95% interval") }}</span></p>
 <div class="pw-scroll"><svg class="pw-chart md-chart" viewBox="0 0 {{ c.width }} {{ c.height }}" role="img" aria-label="{{ de_en('Werte des Paarvergleichs', 'Values of the paired comparison') }}">
@@ -44,6 +48,8 @@
 {% endif %}
 {% endif %}
 {% if pc.hb %}{% with hb_section="main" %}{% include "surveys/_paired_hb.html" %}{% endwith %}{% endif %}
+{% endif %}
+{% if an == "details" %}
 {% if pc.matrix %}{% set mx = pc.matrix %}
 <details class="res-dist res-choice-fold"><summary>{{ de_en("Wer gewinnt gegen wen", "Who wins against whom") }}</summary>
 <div class="res-scroll"><table class="res-table res-pairs">
@@ -69,8 +75,10 @@
   </tbody>
 </table></div>
 </details>
+{% endif %}
+{% if an == "quality" %}
 {% if pc.consistency %}{% set cs = pc.consistency %}
-<details class="res-dist res-choice-fold"><summary>{{ de_en("Konsistenz je Person", "Consistency per person") }}</summary>
+<h3 class="res-group-head">{{ de_en("Konsistenz je Person", "Consistency per person") }}</h3>
 <p class="muted small">{{ de_en("Zirkuläre Triaden: A vor B, B vor C und C vor A. Kendalls Konsistenzkoeffizient ζ = 1 − Triaden / größtmögliche Zahl, 1 = widerspruchsfrei", "Circular triads: A over B, B over C and C over A. Kendall's coefficient of consistence ζ = 1 − triads / largest possible number, 1 = free of contradictions") }}{{ fn("paired_consistency") }}.</p>
 <ul class="plain">
   <li>{% if cs.zeta_median is not none %}{{ de_en("Median von ζ: <strong>{m}</strong> (Mittel {a}) über {n} Personen, die jedes Paar entschieden haben; ganz widerspruchsfrei: {p}", "Median of ζ: <strong>{m}</strong> (mean {a}) over {n} people who decided every pair; entirely free of contradictions: {p}", html=True, m=num(cs.zeta_median), a=num(cs.zeta_mean), n=cs.with_zeta, p=cs.perfect) }}{% else %}{{ de_en("ζ fehlt: Niemand hat jedes Paar entschieden.", "No ζ: nobody decided every pair.") }}{% endif %}</li>
@@ -84,14 +92,20 @@
 </table></div>
 {% endif %}
 <p class="muted small">{{ de_en("Je Person im Export: {t} und {z}. Wer nicht besser als Raten urteilt, lässt sich in der Qualitätssicherung ausschließen.", "Per person in the export: {t} and {z}. Those who judge no better than guessing can be excluded in the quality assurance.", t=e.item.code ~ "_triads", z=e.item.code ~ "_zeta") }}</p>
-</details>
 {% endif %}
+{% endif %}
+{% if an == "details" %}
 {% if x and not x.disconnected %}
 <details class="res-dist res-choice-fold"><summary>{{ de_en("Modell im Detail", "The model in detail") }}</summary>
 <p class="muted small">{{ de_en("{o} Urteile von {p} Personen; Log-Likelihood {ll} (Nullmodell {null}); McFaddens ρ² = {r}; Standardfehler {se}.", "{o} judgements of {p} people; log-likelihood {ll} (null model {null}); McFadden's ρ² = {r}; standard errors {se}.", o=x.observations, p=x.persons, ll=num(x.loglik, 1), null=num(x.null_loglik, 1), r=num(x.rho2), se=de_en("clusterrobust je Person", "cluster-robust per person") if x.robust else de_en("aus der Hesse-Matrix", "from the Hessian")) }}{% if x.t_df %} {{ de_en("Intervalle mit t({df}).", "Intervals with t({df}).", df=x.t_df) }}{% endif %}{{ fn("mnl") }}</p>
-{% if pc.hb %}{% with hb_section="quality" %}{% include "surveys/_paired_hb.html" %}{% endwith %}{% endif %}
 </details>
 {% endif %}
+{% endif %}
+{% if an == "quality" %}
+{% if pc.hb %}{% with hb_section="quality" %}{% include "surveys/_paired_hb.html" %}{% endwith %}{% endif %}
+{% endif %}
 {% else %}
+{% if an == "head" %}
 <p class="muted small">{{ de_en("Noch keine beantworteten Paare.", "No answered pairs yet.") }}</p>
+{% endif %}
 {% endif %}

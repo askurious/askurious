@@ -63,7 +63,7 @@ def test_cbc_button_estimate_recovers_segments_and_exports(app, client, survey):
     setup(client, price_attr=True, none=True, tasks=12, versions=6)
     app.config.update(HB_FAST)
     segments = simulate_segments(app, 80, none_asc=-0.5)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Individuelle Nutzen (Hierarchical Bayes)" in html and "Individuelle Nutzen schätzen (Hierarchical Bayes)" in html
     assert "cbc_hb_look_1" not in client.get("/surveys/1/export/data.csv").data.decode()      # nothing yet
     r = client.post("/surveys/1/results/hb/2", data={"source": "real", "speeder": "50"})
@@ -98,7 +98,7 @@ def test_cbc_button_estimate_recovers_segments_and_exports(app, client, survey):
         assert abs(look["levels"][0]["mean"]) < 0.5 and look["levels"][0]["sd"] > 0.8
         assert abs(sum(lv["best"] for lv in look["levels"]) - 1) < 1e-9
         assert look["importance"] > view["attributes"][1]["importance"]         # look matters most per person
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "<strong>fertig</strong>" in html and "Individuelle Nutzen schätzen (Hierarchical Bayes)" not in html
     assert "hb-utilities" in html and "md-rlh-chart" in html and "bevorzugt" in html and "Akzeptanzrate" in html
     import re
@@ -133,7 +133,7 @@ def test_cbc_button_estimate_recovers_segments_and_exports(app, client, survey):
     assert "cbc_hb_look_1" in book and "Hierarchical Bayes (HB-MNL, Auswahlaufgaben" in book
     # a new participation makes the result stale: no longer shown and no longer exported
     simulate_segments(app, 1, seed=99)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "keine aktuelle HB-Schätzung" in html and "Individuelle Nutzen schätzen (Hierarchical Bayes)" in html
     assert "hb-utilities" not in html and "md-rlh-chart" not in html             # the old values are gone
     assert "cbc_hb_look_1" not in client.get("/surveys/1/export/data.csv").data.decode()
@@ -144,7 +144,7 @@ def test_acbc_hb_with_price_and_threshold(app, client, survey):
     app.config.update(HB_FAST)
     with app.app_context():
         acbc.add_responses(db.session.get(Survey, 1), acbc.simulate(db.session.get(Item, 2), 60, price_beta=-0.01))
-    assert "Individuelle Nutzen schätzen (Hierarchical Bayes)" in client.get("/surveys/1/results").data.decode()
+    assert "Individuelle Nutzen schätzen (Hierarchical Bayes)" in client.get("/surveys/1/results/analysis/2").data.decode()
     assert client.post("/surveys/1/results/hb/2", data={"source": "real", "speeder": "50"}).status_code == 302
     with app.app_context():
         from app import conjoint_hb
@@ -160,7 +160,7 @@ def test_acbc_hb_with_price_and_threshold(app, client, survey):
         assert np.mean(res["price"]) < 0 and res["asc"] is not None
         assert np.array(res["importance"]).shape == (60, 5)                     # four attributes and the price
         assert conjoint_hb.current(item) is not None
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "<strong>fertig</strong>" in html and "Schwelle „kommt nicht infrage“: Mittel" in html
     row = wide(client)[0]
     for col in ("robo_hb_look_1", "robo_hb_voice_3", "robo_hb_threshold", "robo_hb_price", "robo_hb_imp_look",
@@ -192,7 +192,7 @@ def test_display_no_minus_zero_and_rlh_legend(app, client, survey):
     app.config.update({**HB_FAST, "HB_BURN": 60, "HB_DRAWS": 60})
     simulate_segments(app, 12)
     client.post("/surveys/1/results/hb/2", data={"source": "real", "speeder": "50"})
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "−0,00" not in html and "-0,00" not in html                 # a value that rounds to zero has no sign
     assert 'class="md-rlh-legend' in html and ">Personen</text>" in html
     assert "hb-c-range" in html and "hb-importance" in html
@@ -211,12 +211,12 @@ def test_hb_buttons_work_in_place(app, client, survey):
     setup(client, tasks=6, versions=2)
     app.config.update({**HB_FAST, "HB_BURN": 60, "HB_DRAWS": 60})
     simulate_segments(app, 12)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert 'class="hb-part"' in html and "data-hb-form" in html and "hb.js" in html
     fetch = {"X-Requested-With": "fetch"}
     r = client.post("/surveys/1/results/hb/2", data={"source": "real"}, headers=fetch)
     assert r.status_code == 200 and r.is_json and r.json["state"] == "started" and r.json["ok"]
-    part = client.get("/surveys/1/results?hb_part=2", headers=fetch)
+    part = client.get("/surveys/1/results/analysis/2?hb_part=2", headers=fetch)
     body = part.data.decode()
     assert part.status_code == 200 and body.strip().startswith('<section class="hb-part"') and "<strong>fertig</strong>" in body
     assert "<html" not in body and "tabpage" not in body                   # the block alone, not the page
@@ -224,7 +224,7 @@ def test_hb_buttons_work_in_place(app, client, survey):
     assert again.json["state"] == "current" and "passt schon" in again.json["message"]
     # without the script (no header): as before, back to the page
     assert client.post("/surveys/1/results/hb/2", data={"source": "real"}).status_code == 302
-    assert client.get("/surveys/1/results?hb_part=999", headers=fetch).status_code == 404
+    assert client.get("/surveys/1/results/analysis/2?hb_part=999", headers=fetch).status_code == 404
 
 
 def test_running_estimation_shows_only_its_bar(app, client, survey):

@@ -191,10 +191,10 @@ def test_simulator_page_in_english(app, client, survey):
     cbc_setup(client, price_attr=True, none=True, tasks=12, versions=6)
     simulate_segments(app, 40, none_asc=-0.5)
     query = "sim=2&sim_n=2&sim_0_0=0&sim_0_2=0&sim_0_price=75&sim_1_0=1&sim_1_2=0&sim_1_price=50.5"
-    html = client.get("/surveys/1/results?" + query).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + query).data.decode()
     assert re.search(r'res-bar-n">\d+,\d %', html)
     english(app)
-    html = client.get("/surveys/1/results?" + query).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + query).data.decode()
     # English writes per cent without a space (UI/UX audit 2026-10-07, W111)
     assert re.search(r'res-bar-n">\d+\.\d%', html) and not re.search(r'res-bar-n">\d+,\d %', html)
     assert 'name="sim_1_price" value="50.5"' in html

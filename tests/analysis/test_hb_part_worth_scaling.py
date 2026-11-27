@@ -53,7 +53,7 @@ def test_switch_on_the_results_page_export_and_key(app, client, survey):
     app.config.update(HB_FAST)
     simulate_segments(app, 40, none_asc=-0.5)
     client.post("/surveys/1/results/hb/2", data={"source": "real", "speeder": "50"})
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert 'name="scale"' in html and "Rohwerte (Logit-Skala)" in html
     # rescaled is the default since 2026-11-24
     assert '<option value="diffs" selected>' in html and "normiert (Spannweiten je Person; Standard)" in html
@@ -61,7 +61,7 @@ def test_switch_on_the_results_page_export_and_key(app, client, survey):
     fetch = {"X-Requested-With": "fetch"}
     r = client.post("/surveys/1/results/hb/2/scale", data={"source": "real", "scale": "raw"}, headers=fetch)
     assert r.status_code == 200 and r.get_json()["ok"]
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert '<option value="raw" selected>' in html and "Normiert: Alle Nutzen einer Person" not in html
     assert "cbc_hb_norm_" not in client.get("/surveys/1/export/data.csv").data.decode()
     with app.app_context():
@@ -92,7 +92,7 @@ def test_switch_on_the_results_page_export_and_key(app, client, survey):
         util = np.array(after["util"])[ok] * f[ok, None]
         assert d["attributes"][0]["levels"][0]["mean"] == pytest.approx(util[:, 0].mean())
         assert all(lv["lo"] <= lv["mean"] <= lv["hi"] for a in d["attributes"] for lv in a["levels"] if lv["lo"] is not None)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert '<option value="diffs" selected>' in html and "Normiert: Alle Nutzen einer Person" in html
     # export: the rescaled columns next to the raw ones; every person's ranges sum to 100 x attributes
     rows = list(csv.DictReader(io.StringIO(client.get("/surveys/1/export/data.csv").data.decode("utf-8-sig"))))

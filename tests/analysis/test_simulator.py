@@ -109,14 +109,14 @@ def _shares(html):
 def test_pooled_without_hb_and_hb_page(app, client, survey):
     cbc_setup(client, price_attr=True, none=True, tasks=12, versions=6)
     simulate_segments(app, 40, none_asc=-0.5)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert 'id="sim-2"' in html and "Marktsimulator" in html and "aggregierten Logit-Modell" in html
     assert "sim-result" not in html and "First Choice" not in html          # no persons: no first choice
     app.config.update(HB_FAST)
     client.post("/surveys/1/results/hb/2", data={"source": "real", "speeder": "50"})
     query = ("sim=2&sim_n=3&sim_0_0=0&sim_0_2=0&sim_0_price=75&sim_1_0=1&sim_1_2=0&sim_1_price=50"
              "&sim_2_0=2&sim_2_2=1&sim_2_price=150&sim_none=1")
-    html = client.get("/surveys/1/results?" + query).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + query).data.decode()
     assert "aggregierten Logit-Modell. Es behandelt" not in html and "individuellen HB-Nutzen von 40 Personen" in html
     assert re.search(r'<section class="sim-fold sim-section" id="sim-2"[^>]*>', html)
     shares = _shares(html)
@@ -136,14 +136,14 @@ def test_pooled_without_hb_and_hb_page(app, client, survey):
     product_a = next(x for name, x in shares if name.startswith("Produkt A"))
     assert abs(product_a - mean[0]) < 0.051
     # outside the price range: locked, nothing computed
-    html = client.get("/surveys/1/results?" + query.replace("sim_0_price=75", "sim_0_price=160")).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + query.replace("sim_0_price=75", "sim_0_price=160")).data.decode()
     assert "außerhalb der Preisspanne der Befragung (50 bis 150)" in html and "sim-bars" not in html
-    html = client.get("/surveys/1/results?" + query.replace("sim_0_price=75", "sim_0_price=49,5")).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + query.replace("sim_0_price=75", "sim_0_price=49,5")).data.decode()
     assert "außerhalb der Preisspanne" in html
     # add and drop products: 1 to 6
-    html = client.get("/surveys/1/results?" + query + "&sim_act=add").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + query + "&sim_act=add").data.decode()
     assert "Produkt D" in html
-    html = client.get("/surveys/1/results?" + query + "&sim_act=drop0").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + query + "&sim_act=drop0").data.decode()
     assert "Produkt C" not in html and len(_shares(html)) == 3
 
 
@@ -187,7 +187,7 @@ def test_optimise_one_product(app, client, survey):
     and "none"; the best by hand from the kept draws."""
     _hb(app, client)
     q = "sim=2&sim_n=2&sim_0_0=0&sim_0_2=0&sim_0_price=75&sim_1_0=1&sim_1_2=0&sim_1_price=50&sim_none=1"
-    html = client.get("/surveys/1/results?" + q + "&sim_act=opt").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + q + "&sim_act=opt").data.decode()
     assert "Varianten von Produkt A durchgerechnet" in html and 'name="sim_opt" value="1"' in html
     assert "Kohli, R., &amp; Krishnamurti, R. (1987)" in html
     rows = re.findall(r"<tr(?: class=\"sim-opt-current\")?><td>(\d+)</td>.*?<td>([\d,]+) %</td>", html, re.S)
@@ -202,17 +202,17 @@ def test_optimise_one_product(app, client, survey):
     assert f"{counts[0] * counts[2]} Varianten" in html
     assert rows[0][0] == "1" and abs(float(rows[0][1].replace(",", ".")) - best) < 0.051
     # a variant becomes the product
-    html = client.get("/surveys/1/results?" + q + "&sim_opt=1&sim_act=take0:2,2:1").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + q + "&sim_opt=1&sim_act=take0:2,2:1").data.decode()
     assert re.search(r'name="sim_0_0"[^>]*>.*?<option value="2" selected>', html, re.S)
     # alone, without "none": by the mean utility; everything held: nothing to compute
     one = "sim=2&sim_n=1&sim_0_0=0&sim_0_2=0&sim_0_price=75&sim_act=opt"
-    assert "nach dem mittleren Nutzen" in client.get("/surveys/1/results?" + one).data.decode()
-    html = client.get("/surveys/1/results?" + one + "&sim_fixset=1&sim_fix=0&sim_fix=1&sim_fix=2").data.decode()
+    assert "nach dem mittleren Nutzen" in client.get("/surveys/1/results/analysis/2?" + one).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + one + "&sim_fixset=1&sim_fix=0&sim_fix=1&sim_fix=2").data.decode()
     assert "Alle Eigenschaften sind festgehalten" in html
     # off again
-    assert "Varianten von" not in client.get("/surveys/1/results?" + q + "&sim_opt=1&sim_act=optoff").data.decode()
+    assert "Varianten von" not in client.get("/surveys/1/results/analysis/2?" + q + "&sim_opt=1&sim_act=optoff").data.decode()
     # ticked while off: stays ticked (Ralf, 2026-10-05: the tick vanished at once)
-    html = client.get("/surveys/1/results?" + q + "&sim_fixset=1&sim_fix=0&sim_fix=2").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + q + "&sim_fixset=1&sim_fix=0&sim_fix=2").data.decode()
     assert 'name="sim_opt" value="1"' not in html
     assert re.search(r'name="sim_fix" value="0" checked', html) and re.search(r'name="sim_fix" value="2" checked', html)
     assert not re.search(r'name="sim_fix" value="1" checked', html)
@@ -264,7 +264,7 @@ def test_save_undo_and_word(app, client, survey):
                         item.config["attributes"][2]["levels"][1]["id"]}, "price": 120.0}]}]
         # no change of the questionnaire: results cache and HB key stay
         assert results_store.fingerprint(db.session.get(Survey, 1), pool) == before
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "<strong>fertig</strong>" in html and ">Basis</a>" in html            # HB still current; first scenario shown
     assert 'name="sim_0_price" value="80"' in html
     # a second one, then the simulator's own undo and redo
@@ -351,7 +351,7 @@ def _maxdiff(app, client, persons=40):
 
 def test_maxdiff_selection_pooled_and_hb(app, client, survey):
     _maxdiff(app, client)
-    html = client.get("/surveys/1/results?sim=2&sim_s=0&sim_s=1&sim_s=3").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?sim=2&sim_s=0&sim_s=1&sim_s=3").data.decode()
     assert "Auswahl aus Aussagen" in html and "aggregierten Logit-Modell" in html
     shares = _shares(html)
     assert len(shares) == 3 and abs(sum(x for _, x in shares) - 100) < 0.2
@@ -364,11 +364,11 @@ def test_maxdiff_selection_pooled_and_hb(app, client, survey):
         e = np.exp([u[0], u[1], u[3]])
     got = {name.split(".")[0]: x for name, x in shares}
     assert abs(got["1"] - 100 * e[0] / e.sum()) < 0.051
-    html = client.get("/surveys/1/results?sim=2&sim_s=0").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?sim=2&sim_s=0").data.decode()
     assert "Bitte 2 bis 10 Aussagen ankreuzen" in html
     app.config.update(HB_FAST)
     client.post("/surveys/1/results/hb/2", data={"source": "real", "speeder": "50"})
-    html = client.get("/surveys/1/results?sim=2&sim_s=0&sim_s=1&sim_s=3").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?sim=2&sim_s=0&sim_s=1&sim_s=3").data.decode()
     assert "individuellen HB-Nutzen von 40 Personen" in html and "First Choice" in html
     with app.app_context():
         from app import maxdiff_hb
@@ -409,12 +409,12 @@ def test_acbc_on_hb_utilities_with_list_price(app, client, survey):
     app.config.update(HB_FAST)
     with app.app_context():
         acbc.add_responses(db.session.get(Survey, 1), acbc.simulate(db.session.get(Item, 2), 60, price_beta=-0.01))
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert 'id="sim-2"' not in html                                              # no HB yet: no simulator
     # ... but its place and the script: after the estimation in place (static/hb.js) it is fetched (Ralf, 2026-10-06)
     assert 'data-sim-slot="2"' in html and "simulator.js" in html
     client.post("/surveys/1/results/hb/2", data={"source": "real", "speeder": "50"})
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert 'id="sim-2"' in html and "data-sim-summed" in html and 'name="sim_0_price"' in html
     assert "„Keine davon“ anbieten" not in html and "keine Wahl von nichts" in html
     with app.app_context():
@@ -427,7 +427,7 @@ def test_acbc_on_hb_utilities_with_list_price(app, client, survey):
     price = round((lo + hi) / 2, 2)
     q = (f"sim=2&sim_n=2&sim_0_0=0&sim_0_1=0&sim_0_2=0&sim_0_3=0&sim_0_price={price}"
          "&sim_1_0=1&sim_1_1=1&sim_1_2=1&sim_1_3=1&sim_1_price=")
-    html = client.get("/surveys/1/results?" + q).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + q).data.decode()
     shares = _shares(html)
     assert len(shares) == 2 and "First Choice" in html
     with app.app_context():
@@ -435,9 +435,9 @@ def test_acbc_on_hb_utilities_with_list_price(app, client, survey):
                             [price, min(max(listed[1], lo), hi)])
     got = {name: x for name, x in shares}
     assert abs(got["Produkt A"] - expect[0]) < 0.051                            # B: its list price (field emptied)
-    html = client.get("/surveys/1/results?" + q.replace(f"sim_0_price={price}", f"sim_0_price={hi + 50}")).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + q.replace(f"sim_0_price={price}", f"sim_0_price={hi + 50}")).data.decode()
     assert "außerhalb der Preisspanne" in html
-    html = client.get("/surveys/1/results?" + q + "&sim_act=opt").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + q + "&sim_act=opt").data.decode()
     assert "Varianten von Produkt A durchgerechnet" in html and "<th>Preis</th>" in html
     assert re.search(r'value="take0:\d,1:\d,2:\d,3:\d,p:[\d.]+"', html)
     # saving keeps the price
@@ -488,7 +488,7 @@ def test_optimise_shows_how_often_a_variant_is_best_and_its_paired_distance(app,
             lo, hi = (float(x.replace(",", ".").replace("−", "-").replace("+", "")) for x in (r["gap_lo"], r["gap_hi"]))
             assert lo <= hi and r["tie"] == (hi >= 0)
         assert "sop_lo" not in rows[0]
-    html = client.get("/surveys/1/results?" + q + "&sim_act=opt").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + q + "&sim_act=opt").data.decode()
     assert "Abstand zu Rang 1" in html and "der Stichproben" in html and "fällt deshalb eher zu hoch aus" in html
     assert "Smith, J. E., &amp; Winkler, R. L. (2006)" in html
 
@@ -500,9 +500,9 @@ def test_similar_products_none_and_linear_price_notes(app, client, survey):
     _hb(app, client)
     two = "sim=2&sim_n=2&sim_0_0=0&sim_0_2=0&sim_0_price=75&sim_1_0=1&sim_1_2=1&sim_1_price=50"
     three = two.replace("sim_n=2", "sim_n=3") + "&sim_2_0=0&sim_2_2=0&sim_2_price=75"   # C = A
-    html = client.get("/surveys/1/results?" + two).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + two).data.decode()
     assert "Ähnliche Produkte" not in html and "keine Nichtkaufquote" not in html
-    html = client.get("/surveys/1/results?" + three + "&sim_none=1").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + three + "&sim_none=1").data.decode()
     assert "Ähnliche Produkte (A und C)" in html and "First Choice über die HB-Ziehungen ist hier die verlässlichere" in html
     assert "keine Nichtkaufquote" in html
     with app.app_context():
@@ -526,7 +526,7 @@ def test_similar_products_none_and_linear_price_notes(app, client, survey):
         model = entry["model"]
         lt = model["price_linear"]
         assert lt["df"] == 1 and lt["chi2"] >= 0 and 0 <= lt["p"] <= 1                # three price levels
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Linear oder in Stufen? Likelihood-Quotienten-Test" in html and "zwischen den Stufen linear angenommen" in html
 
 
@@ -645,7 +645,7 @@ def test_optimise_leaves_out_prohibitions_with_a_price_level(app, client, survey
             assert bool(out.get("between")) == between
             assert not forbidden or all(not r["take"].startswith("0:0,") for r in out["rows"])
     # the page counts only the variants computed, names the ones left out and the rule between two levels
-    html = client.get("/surveys/1/results?sim=2&sim_n=2&sim_0_0=0&sim_0_2=0&sim_0_price=75&sim_1_0=1&sim_1_2=0"
+    html = client.get("/surveys/1/results/analysis/2?sim=2&sim_n=2&sim_0_0=0&sim_0_2=0&sim_0_price=75&sim_1_0=1&sim_1_2=0"
                       "&sim_1_price=100&sim_none=1&sim_act=opt").data.decode()
     assert f"{counts[0] * counts[2] - counts[2]} Varianten von Produkt A durchgerechnet" in html
     assert f"{counts[2]} Varianten enthalten ein verbotenes Paar von Stufen und sind nicht gerechnet" in html
@@ -681,7 +681,7 @@ def test_price_not_linear_names_differing_price_sensitivity(app, client, survey,
     else:
         cbc_setup(client, price_attr=True, none=True, tasks=12, versions=6)
         simulate_segments(app, 40, none_asc=-0.5)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "weichen deutlich von einer Geraden ab" in html and "unterschiedlich preisempfindliche Personen" in html
     assert ("rechnet der Simulator je Person linear" in html) == with_hb
 

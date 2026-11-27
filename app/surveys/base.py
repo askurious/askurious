@@ -494,6 +494,13 @@ def data_pool(survey, values=None, drop=False):
             "speeder": export.threshold(survey)}
 
 
+def analysis_url(survey, item_id, anchor="", **args):
+    """The address of the page of one analysis below "Ergebnisse" (surveys/analysis.py), with the place on it: the
+    ids the results page had (hb-12, lc-12, sim-12)."""
+    return (url_for("surveys.results_analysis", survey_id=survey.id, item_id=item_id, **args)
+            + (f"#{anchor}" if anchor else ""))
+
+
 def pool_counts(survey):
     """Completed participations per source, shown next to the sources in the data pool."""
     from app.models import Response as R

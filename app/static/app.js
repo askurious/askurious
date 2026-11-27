@@ -783,8 +783,24 @@ foldAll.forEach(function (btn) {
     try { history.pushState(history.state, "", "#" + id); } catch (err) { /* only the address */ }
     reveal(id);
   });
-  if (location.hash) reveal(safeDecode(location.hash.slice(1)));
-  window.addEventListener("hashchange", function () { reveal(safeDecode(location.hash.slice(1))); });
+  // an address of the results page kept from before the analyses had pages of their own (#hb-12, #lc-12, #sim-12,
+  // #quality-12, #holdout-12, #lc-profile-12, #ww-12): on to the page of that analysis, with what the address named
+  function moved(id) {
+    var m = /^(?:hb|hb-part|hb-quality|lc|lc-part|lc-fold|lc-profile|sim|quality|holdout|ww)-(\d+)$/.exec(id || "");
+    if (!m || document.getElementById(id)) return false;
+    var link = page.querySelector('[data-analysis-link="' + m[1] + '"]');
+    if (!link) return false;
+    var p = new URLSearchParams(location.search);
+    p.delete("go");
+    var query = p.toString();
+    location.replace(link.pathname + (query ? "?" + query : "") + "#" + id);
+    return true;
+  }
+  if (location.hash && !moved(safeDecode(location.hash.slice(1)))) reveal(safeDecode(location.hash.slice(1)));
+  window.addEventListener("hashchange", function () {
+    var id = safeDecode(location.hash.slice(1));
+    if (!moved(id)) reveal(id);
+  });
 })();
 // Settings and Datenerhebung: the groups come open; which ones were folded is remembered by the browser, per
 // page; a link to an anchor in a group (also one of the page before the groups, e.g. #panel or #end-texts) opens

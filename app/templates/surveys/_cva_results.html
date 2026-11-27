@@ -5,9 +5,14 @@
 {% from "surveys/_choice_model.html" import pw_chart with context %}
 {% set cv = e.cva %}
 {% set m = cv.model %}
+{# an: the part the page of the analysis asks for (surveys/analysis.html): "head" the line of the basis, "main" importance and part-worths, "sim" the simulator, "segments", "quality", "details" #}
+{% if an == "head" %}
 {% if cv.persons > cv.estimated %}<p class="muted small">{{ de_en("{p} Personen mit Antworten, davon {k} mit eigenen Werten; die übrigen haben zu wenige Aufgaben beantwortet, um alle Teilnutzen zu schätzen.", "{p} people with answers, {k} of them with values of their own; the others answered too few tasks to estimate all part-worths.", p=cv.persons, k=cv.estimated) }}</p>{% endif %}
+{% if cv.persons and cv.persons <= cv.estimated %}<p class="muted small">{{ de_en("{p} Personen mit eigenen Werten.", "{p} people with values of their own.", p=cv.estimated) }}</p>{% endif %}
+{% endif %}
 {% if m %}
-<h3 class="res-group-head cm-main-head">{{ de_en("Wichtigkeit und Teilnutzen", "Importance and part-worths") }} <span class="hint">{{ term("cva", "CVA") }}, {{ de_en("Mittel der Werte je Person", "mean of the values per person") }}</span>{{ fn("cva") }}</h3>
+{% if an == "main" %}
+<h3 class="res-group-head cm-main-head">{{ term("cva", "CVA") }} <span class="hint">{{ de_en("Mittel der Werte je Person", "mean of the values per person") }}</span>{{ fn("cva") }}</h3>
 {% for w in m.warnings %}<p class="flash flash-warning">{{ w }}</p>{% endfor %}
 <p class="res-group-head">{{ term("importance", de_en("Wichtigkeit der Merkmale", "Importance of the attributes")) }}</p>
 <ul class="plain res-bars cm-importance-bars">
@@ -34,13 +39,28 @@
 </table></div>
 </details>
 {% endfor %}
+{% endif %}
+{% if an == "quality" %}
 <p class="muted small">{{ term("r2_person", de_en("R² je Person", "R² per person")) }}: {{ de_en("im Mittel {m}, Median {md}", "mean {m}, median {md}", m=num(m.r2_mean), md=num(m.r2_median)) }}{% if cv.low %} · {{ de_en("{n} Personen unter {lim}", "{n} people under {lim}", n=cv.low, lim=num(cv.r2_low, 1)) }}{% endif %}{% if cv.flat %} · {{ de_en("{n} Personen gaben überall dieselbe Antwort und gehen nicht ein", "{n} people gave the same answer everywhere and are left out", n=cv.flat) }}{% endif %}.</p>
 {% if cv.holdout %}{% with ho=cv.holdout %}{% include "surveys/_cva_holdouts.html" %}{% endwith %}{% endif %}
-<div class="sim-slot" data-sim-slot="{{ e.item.id }}" data-sim-url="{{ url_for('surveys.results', survey_id=survey.id) }}">{% if sims and sims.get(e.item.id) %}{% with s=sims[e.item.id] %}{% include "surveys/_simulator.html" %}{% endwith %}{% endif %}</div>
+{% endif %}
+{% if an == "sim" %}
+<div class="sim-slot" data-sim-slot="{{ e.item.id }}" data-sim-url="{{ part_url|default(url_for('surveys.results', survey_id=survey.id)) }}">{% if sims and sims.get(e.item.id) %}{% with s=sims[e.item.id] %}{% include "surveys/_simulator.html" %}{% endwith %}{% endif %}</div>
+{% endif %}
+{% if an == "main" %}
 {% call method(de_en("Regression je Person", "Regression per person")) %}<p>{{ de_en("Für jede Person eine lineare Regression ihrer Antworten auf die gezeigten Stufen (kleinste Quadrate, Effektkodierung); bei Paaren auf die Differenz der beiden Angebote mit einer Konstante für die zuerst gezeigte Seite. Die Teilnutzen sind in Punkten der Antwortskala nullzentriert; oben stehen ihre Mittel über die Personen mit einem t-Intervall. Anders als bei Wahlaufgaben braucht das kein HB, weil jede Person ihren ganzen Versuchsplan bewertet.", "For every person a linear regression of their answers on the levels shown (least squares, effects coding); for pairs on the difference of the two offers with a constant for the side shown first. The part-worths are zero-centred in points of the answer scale; above are their means over the people with a t interval. Unlike choice tasks this needs no HB, because every person rates their whole experimental design.") }}</p>{% endcall %}
+{% endif %}
 {% elif cv.persons %}
+{% if an == "head" %}
 <p class="muted small">{{ de_en("Noch keine Person mit eigenen Werten.", "No person with values of their own yet.") }}</p>
 {% endif %}
+{% endif %}
+{% if an == "main" %}
 {% if cv.hb %}{% with hb_section="main", m=none %}{% include "surveys/_cva_hb.html" %}{% endwith %}{% endif %}
+{% endif %}
+{% if an == "quality" %}
 {% if cv.hb %}{% with hb_section="quality", m=none %}{% include "surveys/_cva_hb.html" %}{% endwith %}{% endif %}
-{% if cv.lc %}{% with l=cv.lc %}{% include "surveys/_segments_fold.html" %}{% endwith %}{% endif %}
+{% endif %}
+{% if an == "segments" %}
+{% if cv.lc %}{% with l=cv.lc %}{% include "surveys/_segments.html" %}{% endwith %}{% endif %}
+{% endif %}

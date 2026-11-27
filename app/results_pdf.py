@@ -293,10 +293,46 @@ def page_tree(survey):
         view = inspect.unwrap(page.results)
         out = view(survey.id)
         html = out.get_data(as_text=True) if hasattr(out, "get_data") else str(out)
-        return _readable(lxml.html.fromstring(html))
+        return _readable(_with_analyses(lxml.html.fromstring(html), survey))
     except Exception:  # noqa: BLE001 - the report stays useful without the page's extra parts
         current_app.logger.exception("results report: the results page could not be read")
         return None
+
+
+def _with_analyses(root, survey):
+    """The results page with the analyses that have pages of their own (surveys/analysis.py) put back into their
+    questions: the page keeps a short summary of a conjoint, MaxDiff or paired comparison question, the report and
+    the tables "as shown" take everything, as before the analyses moved. The panels of the page of an analysis come
+    in the place of the summary, in their order, without being sections of their own."""
+    import inspect
+
+    import lxml.html
+    from flask import current_app
+
+    from app.surveys import analysis
+
+    view = inspect.unwrap(analysis.results_analysis)
+    for holder in root.xpath("//*[@data-analysis-summary]"):
+        try:
+            out = view(survey.id, int(holder.get("data-analysis-summary")))
+            html = out.get_data(as_text=True) if hasattr(out, "get_data") else str(out)
+            page = lxml.html.fromstring(html).xpath("//*[contains(concat(' ', @class, ' '), ' analysis-page ')]")
+        except Exception:  # noqa: BLE001 - the summary stays, the report is made
+            current_app.logger.exception("results report: the page of an analysis could not be read")
+            continue
+        if not page:
+            continue
+        for child in list(holder):
+            holder.remove(child)
+        holder.text = None
+        # the line on people and tasks (not the line of the basis, which the report has on its own), then the panels
+        for line in page[0].xpath("./div[contains(@class, 'analysis-state')]/*[not(contains(@class, 'res-state'))]"):
+            holder.append(line)
+        for panel in page[0].xpath("./section"):
+            panel.tag = "div"
+            panel.attrib.pop("id", None)
+            holder.append(panel)
+    return root
 
 
 def _readable(root):

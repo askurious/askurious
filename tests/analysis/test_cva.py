@@ -205,7 +205,7 @@ def test_results_page_and_methods(app, client, survey):
         miete = m["attributes"][0]
         assert miete["levels"][0]["beta"] == pytest.approx(1.5, abs=0.4) and miete["levels"][0]["lo"] < 1.5
         assert miete["importance"] > m["attributes"][2]["importance"] and len(m["charts"]) == 3
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Wichtigkeit und Teilnutzen" in html and "R² je Person" in html and "Green, P. E., &amp; Srinivasan" in html
     methods = client.get("/surveys/1/methods").data.decode()
     assert "war eine Bewertungs-Conjoint" in methods and "Regression der Antworten" in methods
@@ -277,7 +277,7 @@ def test_market_simulator_on_the_part_worths_per_person(app, client, survey):
         assert ("sim_exp", "0.3") in sharper["state_params"]
         opt = simulator.view(item, entry["cva"], ImmutableMultiDict({**best, "sim_act": "opt", "sim_fixset": "1"}), "de")
         assert opt["opt"]["rows"][0]["levels"][:2] == ["700 €", "Zentrum"]
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Marktsimulator" in html and "Teilnutzen je Person aus der Regression" in html and 'name="sim_exp"' in html
 
 
@@ -381,7 +381,7 @@ def test_holdouts_editor_pages_export_and_results(app, client, survey):
         fit = {"constant": 5.0, "pw": TRUE}
         assert cva_analysis.predict(fit, [[0, 0, 0]]) == pytest.approx(8.0)
         assert cva_analysis.predict(fit, [[0, 0, 0], [2, 2, 1]]) == pytest.approx(5.0 + 3.0 + 2.2 + 1.0)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Holdout-Aufgaben" in html and "Mittel vorhergesagt" in html and "Trefferquote" in html
     assert "Orme, B. K. (2009)" in html
     assert "feste Holdout-Aufgaben, die nicht in die Regression" in client.get("/surveys/1/methods").data.decode()
@@ -456,7 +456,7 @@ def test_segments_page_export_simulator_and_methods(app, client, survey):
             s.responses.append(Response(pid=pid, answers={"2": answer}, layout={"cj": {"2": {"version": 0}}},
                                         status=Response.COMPLETED))
         db.session.commit()
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Segmente schätzen" in html and "Latent-Class-Regression der Bewertungen" in html
     r = client.post("/surveys/1/results/lc/2", data={"source": "real"})
     assert r.status_code == 302
@@ -473,7 +473,7 @@ def test_segments_page_export_simulator_and_methods(app, client, survey):
         rent = view["attributes"][0]["levels"][0]["values"]
         assert rent[0]["beta"] == pytest.approx(1.5, abs=0.3) and rent[1]["beta"] == pytest.approx(-1.5, abs=0.3)
         assert all(v["se"] is not None and v["se"] < 0.3 for v in rent) and len(view["sigma"]) == 2
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Teilnutzen je Segment" in html and "Reststreuung je Segment" in html and "DeSarbo, W. S." in html
     assert "Latent-Class-Logit" not in html
     rows = list(csv.DictReader(io.StringIO(client.get("/surveys/1/export/data.csv").data.decode("utf-8-sig"))))

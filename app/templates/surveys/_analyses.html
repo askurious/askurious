@@ -1,0 +1,20 @@
+{# The section "Analysen" of the results page (restructuring of the results part, stage 1): one line per analysis
+   that has a page of its own below "Ergebnisse" (surveys/analysis.py rows()), with its state. Needs: analyses, survey. #}
+{% from "_macros.html" import content_lang %}
+<section class="panel" id="analyses">
+  <h2>{{ de_en("Analysen", "Analyses") }} <span class="hint">{{ de_en("jede auf einer eigenen Seite", "each on a page of its own") }}</span></h2>
+  <ul class="plain analysis-list">
+    {% for a in analyses %}
+    <li><span class="analysis-name"><strong>{{ a.method }}</strong> <span{{ content_lang(survey.default_language) }}>{{ (a.question|striptags|readable_placeholders|truncate(90)) or a.item.code }}</span> <span class="hint">{{ a.item.code }} · {{ a.label }}</span></span>
+      <span class="analysis-badges">
+        {% if a.hb == "current" %}<span class="badge badge-approved">{{ de_en("HB aktuell", "HB current") }}</span>
+        {% elif a.hb == "running" %}<span class="badge">{{ de_en("HB läuft", "HB running") }}</span>
+        {% elif a.hb == "stale" %}<span class="badge badge-pending">{{ de_en("HB veraltet", "HB out of date") }}</span>
+        {% elif a.hb == "none" %}<span class="badge">{{ de_en("noch nicht geschätzt", "not estimated yet") }}</span>{% endif %}
+        {% if a.segments %}<span class="badge">{% if a.segments == 1 %}{{ de_en("1 Segment", "1 segment") }}{% else %}{{ de_en("{k} Segmente", "{k} segments", k=a.segments) }}{% endif %}</span>
+        {% elif a.lc_running %}<span class="badge">{{ de_en("Segmente: Schätzung läuft", "Segments: estimation running") }}</span>{% endif %}
+      </span>
+      <a class="button button-secondary button-small" href="{{ a.url }}" data-analysis-link="{{ a.item.id }}" aria-label="{{ de_en('{name} öffnen', 'Open {name}', name=a.method ~ ' ' ~ a.item.code) }}">{{ de_en("Öffnen", "Open") }}</a></li>
+    {% endfor %}
+  </ul>
+</section>

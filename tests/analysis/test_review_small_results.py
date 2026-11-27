@@ -163,11 +163,13 @@ def test_results_stay_kept_next_to_a_failed_estimation(app, client, survey, monk
         db.session.commit()
         item = db.session.scalar(db.select(Item).filter_by(type="maxdiff"))
         _, marker = maxdiff_hb._paths(item)
+        item_id = item.id
         started = maxdiff_hb._now().isoformat()
         maxdiff_hb._write(marker, {"state": "error", "started": started, "message": "ValueError: kaputt"})
 
-    def page():
-        return client.get("/surveys/1/results").data.decode()
+    def page():  # the results page, then the page of the analysis, which shows the estimation (from the kept results)
+        return (client.get("/surveys/1/results").data.decode()
+                + client.get(f"/surveys/1/results/analysis/{item_id}").data.decode())
 
     assert FRESH in page() and len(calls) == 1
     # an estimation that failed, failed again, died or runs: the kept results stay, only its view is read anew

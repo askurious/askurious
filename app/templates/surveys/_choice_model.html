@@ -33,7 +33,7 @@
 {% if m %}
 {% if cm_part != "detail" %}
 <div class="cm-main"{% if e is defined %} data-cm-item="{{ e.item.id }}"{% endif %}>
-{% if cm_part == "main" %}<h3 class="res-group-head cm-main-head">{{ de_en("Wichtigkeit und Teilnutzen", "Importance and part-worths") }} <span class="hint">{{ de_en("aggregiertes Logit-Modell", "aggregate logit model") }}</span>{% if fn is defined %}{{ fn("mnl") }}{% endif %}</h3>{% endif %}
+{% if cm_part == "main" %}<h3 class="res-group-head cm-main-head">{{ de_en("Aggregiertes Logit-Modell", "Aggregate logit model") }}{% if fn is defined %}{{ fn("mnl") }}{% endif %}</h3>{% endif %}
 {% for w in m.warnings %}<p class="flash flash-warning">{{ w }}{% if m.ridge_warning and w == m.ridge_warning %}{{ fn("ridge") }}{% endif %}</p>{% endfor %}
 <p class="res-group-head">{{ term("importance", de_en("Wichtigkeit der Merkmale", "Importance of the attributes")) }}</p>
 {# most important first; the tables and charts below keep the order of the questionnaire #}

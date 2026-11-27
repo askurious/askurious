@@ -5147,6 +5147,21 @@ textarea[name="research_question"] { field-sizing: content; min-height: 4.6em; }
 .res-choice-fold + .res-choice-fold, .sim-slot + .res-choice-fold { margin-top: 8px; }
 .res-choice-fold[open] { padding-bottom: 8px; }
 .res-choice-fold > summary .hint { font-weight: 400; }
+/* the page of one analysis below "Ergebnisse" (surveys/analysis.html) and its lines on the results page: flat panels,
+   the simulator with its own heading and no panel while it has nothing to show */
+.analysis-state { margin: 0 0 12px; }
+.analysis-state > p { margin: 0 0 2px; }
+.analysis-page > .panel > .acbc-results > :first-child { margin-top: 0; }
+.analysis-page .panel > .acbc-results > .res-choice-fold:first-child, .analysis-page .panel > .res-choice-fold:first-of-type { border-top: 0; padding-top: 0; }
+.analysis-page .sim-section { margin-top: 0; padding-top: 0; border-top: 0; }
+.analysis-page .sim-title { margin: 0 0 12px; }
+.analysis-sim:not(:has(.sim-fold, h2)) { display: none; }
+.analysis-list > li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.analysis-list > li:first-child { border-top: 0; padding-top: 0; }
+.analysis-list > li:last-child { padding-bottom: 0; }
+.analysis-name { flex: 1 1 320px; min-width: 0; }
+.analysis-badges { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.analysis-summary .form-actions { align-items: center; }
 .lc-taken { margin-left: 10px; font-size: 0.85rem; }
 /* overview of a matrix or loop (V55): one stacked 100-% row per statement or pass */
 /* group comparison of a nominal question: per answer one bar per group (Ralf, 2026-10-06) */

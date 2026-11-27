@@ -43,12 +43,8 @@
   {% if e.dates %}{% include "surveys/_date_results.html" %}{% endif %}
   {% if e.iat %}<p class="muted small">{{ term("iat_d", de_en("D-Wert nach dem verbesserten Algorithmus", "D score by the improved algorithm")) }}{{ fn("iat") }} · {{ de_en("einen D-Wert haben {n} von {all} Personen (keinen, wer mehr als 10 % der Antworten unter 300 ms gab)", "{n} of {all} people have a D score (none for those who gave more than 10% of their answers under 300 ms)", n=e.iat.valid, all=e.iat.n) }}{% if e.iat.cannot %} · {{ de_en("{k} weitere konnten die Aufgabe nach eigener Angabe nicht bearbeiten und sind nicht mitgezählt", "{k} more said they could not do the task and are not counted", k=e.iat.cannot) }}{% endif %}</p>{% endif %}
   {% if e.discounting %}{% set dd = e.discounting %}<p class="muted small">{% if dd.mode == "quick" %}{{ de_en("Kurzform mit fünf Fragen", "Short form with five questions") }}{{ fn("dd_quick") }}: {{ de_en("ED50 aus der fünften Wahl", "ED50 from the fifth choice") }}, {{ term("k_discount", "k") }} = 1 / ED50{% else %}{{ de_en("Anpassungsverfahren, k der Hyperbel und Fläche unter der Kurve", "Adjusting procedure, k of the hyperbola and area under the curve") }}{{ fn("dd") }}{% if dd.n %} · {{ de_en("nicht systematisch", "not systematic") }}{{ fn("jb") }}: <strong>{{ de_en("{n} von {all}", "{n} of {all}", n=dd.any, all=dd.n) }}</strong> {{ de_en("Personen (Kriterium 1, ein Indifferenzpunkt mehr als 20 % des Betrags über dem vorherigen: {a}; Kriterium 2, der letzte nicht mindestens 10 % unter dem ersten: {b}); ihre k und Flächen sind mit Vorsicht zu lesen, im Export markiert (Spalten _jb1, _jb2)", "people (criterion 1, an indifference point more than 20% of the amount above the one before: {a}; criterion 2, the last not at least 10% below the first: {b}); read their k and areas with care, marked in the export (columns _jb1, _jb2)", a=dd.jb1, b=dd.jb2) }}{% endif %}{% endif %}</p>{% endif %}
-  {% if e.maxdiff %}{% include "surveys/_maxdiff_results.html" %}{% endif %}
-  {% if e.paired %}{% include "surveys/_paired_results.html" %}{% endif %}
-  {% if e.cva %}{% include "surveys/_cva_results.html" %}{% endif %}
-  {% if e.aca %}{% include "surveys/_aca_results.html" %}{% endif %}
-  {% if e.acbc %}{% include "surveys/_acbc_results.html" %}{% endif %}
-  {% if e.cbc %}{% include "surveys/_cbc_results.html" %}{% endif %}
+  {# the conjoint family: a short summary here, the analysis on a page of its own (surveys/analysis.html) #}
+  {% if e.maxdiff or e.paired or e.cva or e.aca or e.acbc or e.cbc %}{% include "surveys/_analysis_summary.html" %}{% endif %}
   {% for m in e.multi or [] %}
   {# multiple choice: one list, per option the share of the people who saw it and answered the question #}
   <div class="res-freq">

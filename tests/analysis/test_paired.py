@@ -282,7 +282,7 @@ def test_results_page_and_sources(app, client, survey):
         pc = entry["paired"]
         assert entry["answered"] == 12 and pc["persons"] == 12 and pc["model"]["rows"][0]["n"] == 1
         assert pc["consistency"]["persons"] == 12 and pc["matrix"]["order"][0] == 1
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Werte der Optionen" in html and "Wer gewinnt gegen wen" in html and "Konsistenz je Person" in html
     assert "Bradley, R. A., &amp; Terry, M. E. (1952)" in html and "Davidson, R. R. (1970)" in html
     assert "Kendall, M. G., &amp; Babington Smith" in html and "Davidson, R. R., &amp; Beaver" in html
