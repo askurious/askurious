@@ -21,7 +21,7 @@ The three kinds have fixed names everywhere (glossary: "Fragebogen, Interviewlei
 The count separates real participations from dummy data, so that nobody mistakes simulated data for fieldwork.
 
 **Signing in.**
-Researchers sign in with their ORCID iD, with an email address and password or with a passkey; the three ways stand side by side on the sign-in page.
+Researchers sign in with their ORCID iD, with an email address and password or with a passkey; all three ways are complete ways in, ORCID comes first on the sign-in page.
 ORCID links a person to their publications; the order of the researchers on a survey is the author order of the later data package (decisions of 2026-09-26 and 2026-10-01).
 
 ---

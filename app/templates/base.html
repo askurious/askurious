@@ -143,7 +143,8 @@
       <span class="small">{{ de_en("Interviewende: {name}", "Interviewer {name}", name=iv_access.name) }}</span>
       <form method="post" action="{{ url_for('interviewer.logout', code=survey.code) }}" class="inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button button-small button-secondary">{{ de_en("Abmelden", "Sign out") }}</button></form>
       {% elif request.endpoint not in ("auth.sign_in", "auth.sign_in_code") and request.blueprint != "interviewer" %}
-      <a href="{{ url_for('auth.sign_in') }}">{{ de_en("Mit E-Mail anmelden", "Sign in with email") }}</a>
+      {# the page with all three ways in; the filled button beside it is the direct way with ORCID (Ralf 2026-11-27) #}
+      <a href="{{ url_for('auth.sign_in') }}">{{ de_en("Anmelden", "Sign in") }}</a>
       <a class="button" href="{{ url_for('auth.login') }}">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden", "Sign in with ORCID") }}</a>
       {% endif %}
     </nav>

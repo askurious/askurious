@@ -104,7 +104,8 @@ def test_the_sign_in_page_does_not_repeat_the_sign_in_in_its_head(app):
     c = app.test_client()
     page = c.get("/auth/sign-in").data.decode()
     head = page.split("<header", 1)[1].split("</header>", 1)[0]
-    assert "Mit E-Mail anmelden" not in head and "Mit ORCID anmelden" not in head
+    assert ">Anmelden</a>" not in head and "Mit ORCID anmelden" not in head
     assert "Mit ORCID anmelden" in page  # on the page itself
     other = c.get("/").data.decode().split("<header", 1)[1].split("</header>", 1)[0]
-    assert "Mit E-Mail anmelden" in other
+    assert ">Anmelden</a>" in other and "Mit E-Mail anmelden" not in other  # the link to all three ways
+    assert 'class="button" href="/auth/login"' in other                         # ORCID: the filled button

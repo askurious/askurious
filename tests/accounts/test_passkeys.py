@@ -367,12 +367,23 @@ def test_mail_and_security_log_about_added_and_removed_passkeys(app, caplog):
     assert "andere@example.org" not in caplog.text
 
 
-def test_the_sign_in_page_offers_three_ways_alike(app):
+def test_the_sign_in_page_offers_three_ways_with_orcid_first(app):
+    """Ralf 2026-11-27: all three ways are complete, ORCID comes first with the only filled button and one sentence
+    on what it gives; never "empfohlen". Then the passkey, then e-mail with password, each with the outlined button."""
     app.config["ORCID_CLIENT_ID"] = "APP-TEST"
     page = app.test_client().get("/auth/sign-in").data.decode()
-    assert "Mit Passkey anmelden" in page and "passkey.js" in page
-    assert "empfohlen" not in page and "recommended" not in page
-    assert page.count('class="button"') == 3 and "button-secondary" not in page.split('class="sign-in"')[1].split("</main>")[0]
+    body = page.split('class="sign-in"')[1].split("</main>")[0]
+    assert "Mit Passkey anmelden" in body and "passkey.js" in page
+    for word in ("empfohlen", "recommended", "bevorzugt", "preferred"):
+        assert word not in body
+    assert body.index("Mit ORCID</h2>") < body.index("Mit Passkey</h2>") < body.index("Mit E-Mail-Adresse und Passwort</h2>")
+    assert body.count('class="button"') == 1 and body.count('class="button button-secondary"') == 2
+    assert body.index('class="button"') < body.index("Mit ORCID anmelden") < body.index('class="button button-secondary"')
+    assert "Kein eigenes Passwort nötig" in body
+
+    app.config["ORCID_CLIENT_ID"] = ""
+    body = app.test_client().get("/auth/sign-in").data.decode().split('class="sign-in"')[1].split("</main>")[0]
+    assert "Mit ORCID" not in body and body.count('class="button"') == 2   # without ORCID no way stands back
     assert 'autocomplete="username webauthn"' not in page        # no suggestion in the address field
 
 
