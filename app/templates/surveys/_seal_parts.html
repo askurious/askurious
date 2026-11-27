@@ -58,25 +58,25 @@
 {# cols as for numbers: what the entries of the chain are, cases and events, so that 5 cases with a deletion record
    and the end of the fieldwork read as 7 entries (Philipp, 2026-11-15); a row shows when one column has it #}
 {% macro entries(cols) %}
-{% set events = [("field", de_en("Start/Ende der Feldphase", "start/end of the fieldwork")),
-                 ("prereg", de_en("Präregistrierung eingefroren", "pre-registration frozen")),
-                 ("enabled", de_en("Siegelkette eingeschaltet", "seal chain switched on")),
-                 ("purged", de_en("Aufbewahrungsfrist abgelaufen", "retention period over")),
-                 ("closed", de_en("Befragung gelöscht", "survey deleted"))] %}
+{% set events = [("field", de_en("Start/Ende der Feldphase", "Start/end of the fieldwork")),
+                 ("prereg", de_en("Präregistrierung eingefroren", "Pre-registration frozen")),
+                 ("enabled", de_en("Siegelkette eingeschaltet", "Seal chain switched on")),
+                 ("purged", de_en("Aufbewahrungsfrist abgelaufen", "Retention period over")),
+                 ("closed", de_en("Befragung gelöscht", "Survey deleted"))] %}
 {% set known = events|map("first")|list %}
 <p class="small muted">{{ de_en("Neben den Fällen enthält die Kette Ereignisse wie Löschvermerke oder Start und Ende der Feldphase; deshalb hat sie mehr Einträge als Fälle.", "Besides the cases, the chain holds events such as deletion records or the start and end of the fieldwork; that is why it has more entries than cases.") }}</p>
 <div class="res-scroll"><table class="seal-numbers">
   <thead><tr><th scope="col">{{ de_en("Einträge der Kette", "Entries of the chain") }}</th>{% for head, c in cols %}<th scope="col" class="num">{{ head }}</th>{% endfor %}</tr></thead>
   <tbody>
     <tr><th scope="row">{{ de_en("Fälle", "Cases") }}</th>{% for head, c in cols %}<td class="num">{{ c.entries.cases }}</td>{% endfor %}</tr>
-    {% for key, label in [("amended", de_en("Änderungen", "amendments")), ("deleted", de_en("Löschvermerke", "deletion records"))] %}{% set ns = namespace(n=0) %}{% for head, c in cols %}{% set ns.n = ns.n + c.entries[key] %}{% endfor %}{% if ns.n %}
+    {% for key, label in [("amended", de_en("Änderungen", "Amendments")), ("deleted", de_en("Löschvermerke", "deletion records"))] %}{% set ns = namespace(n=0) %}{% for head, c in cols %}{% set ns.n = ns.n + c.entries[key] %}{% endfor %}{% if ns.n %}
     <tr><th scope="row">{{ label }}</th>{% for head, c in cols %}<td class="num">{{ c.entries[key] }}</td>{% endfor %}</tr>
     {% endif %}{% endfor %}
     {% for key, label in events %}{% set ns = namespace(n=0) %}{% for head, c in cols %}{% set ns.n = ns.n + c.entries.by_event.get(key, 0) %}{% endfor %}{% if ns.n %}
     <tr><th scope="row">{{ label }}</th>{% for head, c in cols %}<td class="num">{{ c.entries.by_event.get(key, 0) }}</td>{% endfor %}</tr>
     {% endif %}{% endfor %}
     {% set ns = namespace(n=0) %}{% for head, c in cols %}{% for k, n in c.entries.by_event.items() if k not in known %}{% set ns.n = ns.n + n %}{% endfor %}{% endfor %}{% if ns.n %}
-    <tr><th scope="row">{{ de_en("weitere Ereignisse", "further events") }}</th>{% for head, c in cols %}{% set ms = namespace(n=0) %}{% for k, n in c.entries.by_event.items() if k not in known %}{% set ms.n = ms.n + n %}{% endfor %}<td class="num">{{ ms.n }}</td>{% endfor %}</tr>
+    <tr><th scope="row">{{ de_en("weitere Ereignisse", "Further events") }}</th>{% for head, c in cols %}{% set ms = namespace(n=0) %}{% for k, n in c.entries.by_event.items() if k not in known %}{% set ms.n = ms.n + n %}{% endfor %}<td class="num">{{ ms.n }}</td>{% endfor %}</tr>
     {% endif %}
     <tr class="total"><th scope="row">{{ de_en("Summe", "Total") }}</th>{% for head, c in cols %}<td class="num">{{ c.entries.total }}</td>{% endfor %}</tr>
   </tbody>
