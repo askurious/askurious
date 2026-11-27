@@ -124,11 +124,11 @@ def test_w2_simulator_offers_none_only_with_a_constant(app, client, survey):
     test_dual_response.setup(client)
     uid = test_dual_response.start(app, client)
     _participants(app, uid, 12, follow=False)
-    html = client.get("/surveys/1/results?sim=2&sim_none=1").get_data(as_text=True)
+    html = client.get("/surveys/1/results/analysis/2?sim=2&sim_none=1").get_data(as_text=True)
     assert 'id="sim-2"' in html and "Nachfrage (Dual Response) wurde nie beantwortet" in html
     assert 'type="checkbox" name="sim_none"' not in html and not re.search(r'res-bar-label">\s*Keine davon', html)
     _participants(app, uid, 12, follow=True)
-    html = client.get("/surveys/1/results?sim=2&sim_none=1").get_data(as_text=True)
+    html = client.get("/surveys/1/results/analysis/2?sim=2&sim_none=1").get_data(as_text=True)
     assert 'type="checkbox" name="sim_none"' in html and "wurde nie beantwortet" not in html
     assert re.search(r'res-bar-label">\s*Keine davon', html)
 
