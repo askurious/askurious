@@ -196,7 +196,7 @@ Someone who may only look but may make a copy (for example of an example survey,
 ![The element page of a validated construct, with answer mode and level of measurement](img/element-likert.jpg)
 
 Clicking an element opens its own page with the question text, the options, the answer mode, the level of measurement and a live preview.
-With the AI help at questions (experimental, switched on per person by an admin), purple buttons stand right at the field in a draft: “Suggest wording” at the question text opens a popup with three wordings to choose from, “Suggest” next to “+ option” or “+ statement” one with suggestions to tick.
+Whoever has switched on “Use generative AI” in the account finds purple buttons right at the field in a draft: “Suggest wording” at the question text opens a popup with three wordings to choose from, “Suggest” next to “+ option” or “+ statement” one with suggestions to tick.
 Options and statements are appended, never replaced; “Insert” replaces the question text; every take-over is one step for “Undo”.
 Appended statements carry the mark “AI” at the statement, in the pre-launch check and in the codebook; locked constructs, frozen linked elements, the consent and the translation view have no such buttons.
 A validated construct shows its source and terms of use and is locked in its validated wording; "Unlock" is possible, but the element is then no longer the validated instrument and is documented as "adapted".

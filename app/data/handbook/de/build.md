@@ -196,7 +196,7 @@ Wer nur ansehen darf, eine Kopie aber anlegen darf (etwa von einer Beispielbefra
 ![Die Seite eines validierten Konstrukts mit Antwortmodus und Messniveau](img/element-likert.jpg)
 
 Ein Klick auf ein Element öffnet seine eigene Seite mit Fragetext, Optionen, Antwortmodus, Messniveau und einer Vorschau, die sich sofort ändert.
-Mit der KI-Hilfe an Fragen (experimentell, von einem Admin je Person eingeschaltet) stehen im Entwurf violette Knöpfe direkt am Feld: „Formulieren“ am Fragetext öffnet ein Popup mit drei Formulierungen zur Wahl, „Vorschlagen“ neben „+ Option“ oder „+ Aussage“ eines mit Vorschlägen zum Anhaken.
+Wer „Generative KI nutzen“ im Konto eingeschaltet hat, findet im Entwurf violette Knöpfe direkt am Feld: „Formulieren“ am Fragetext öffnet ein Popup mit drei Formulierungen zur Wahl, „Vorschlagen“ neben „+ Option“ oder „+ Aussage“ eines mit Vorschlägen zum Anhaken.
 Optionen und Aussagen werden angehängt, nie ersetzt; „Einsetzen“ ersetzt den Fragetext; jede Übernahme ist ein Schritt für „Rückgängig“.
 Angehängte Aussagen tragen die Marke „KI“ an der Aussage, in der Startprüfung und im Codebuch; an gesperrten Konstrukten, eingefrorenen verknüpften Elementen, der Einwilligung und in der Übersetzungsansicht gibt es die Knöpfe nicht.
 Ein validiertes Konstrukt zeigt seine Quelle und Nutzungsbedingungen und ist in seinem validierten Wortlaut gesperrt; Entsperren ist möglich, dann ist das Element aber nicht mehr das validierte Instrument und wird als „angepasst“ dokumentiert.

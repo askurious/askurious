@@ -4,7 +4,7 @@ import copy
 from flask import abort, flash, jsonify, redirect, request, url_for
 from flask_login import current_user, login_required
 
-from app import ai, ai_access, ai_fields, ai_scales, experimental, linked, undo
+from app import ai, ai_access, ai_fields, ai_scales, linked, undo
 from app.editor.base import (_CONSENT_BLOCK_ONLY, _back, _get_block, _get_item, _is_consent_block, _lang, _renumber,
                              _require_draft, _unique_code, bp, not_draft_message)
 from app.editor.elements import _position
@@ -115,13 +115,12 @@ def ai_more(survey_id, item_id):
     return redirect(url_for("editor.edit_item", survey_id=survey.id, item_id=item.id, lang=lang) + "#body")
 
 
-# --- help at the fields of one question (experimental "ai_fields", app/ai_fields.py) -----------------------------------
+# --- help at the fields of one question (app/ai_fields.py) -------------------------------------------------------------
 
 
 def _field_item(survey_id, item_id, part):
-    """(survey, item) for a route of the help; 404 without the feature, without "Generative KI nutzen", without the
-    role "Bearbeiten" and for a part that is not open (the consent, a locked construct, ...)."""
-    experimental.require("ai_fields")
+    """(survey, item) for a route of the help; 404 without "Generative KI nutzen", without the role "Bearbeiten"
+    and for a part that is not open (the consent, a locked construct, ...)."""
     survey = get_survey(survey_id)
     item = _get_item(survey, item_id)
     if not ai_access.ai_on() or not survey.can(current_user, "editor") or not ai_fields.allowed(item, part):

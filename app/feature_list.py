@@ -82,7 +82,7 @@ def groups():
             (de_en("KI-Hilfe direkt am Feld einer Frage: Fragetext formulieren, Antwortoptionen und Aussagen "
                    "vorschlagen, zum Anhaken und Anhängen",
                    "AI help right at the field of a question: word the question text, suggest answer options and "
-                   "statements, to tick and append"), "ai_fields"),
+                   "statements, to tick and append"), None),
         ]),
         ("klassisch", de_en("Elementtypen: klassische Fragen", "Element types: classic questions"), [
             (de_en("Einfachauswahl (auch als Bilder, Dropdown oder Suchfeld) und Mehrfachauswahl",
