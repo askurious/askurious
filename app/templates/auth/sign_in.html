@@ -3,14 +3,18 @@
 {% block title %}{{ de_en("Anmelden", "Sign in") }}{% endblock %}
 {% block head %}<script src="{{ url_for('static', filename='passkey.js') }}" defer></script>{% endblock %}
 {% block content %}
-{# three ways in, each with the same weight and the same kind of button (Ralf 2026-11-06 and 2026-11-27): ORCID,
-   e-mail with password, a passkey (app/passkeys.py). The passkey starts only with its button: no suggestion in the
-   address field, nothing by itself. #}
+{# three complete ways in (Ralf 2026-11-27): ORCID first, with the only filled button and one sentence on what it
+   gives (never "empfohlen"); then a passkey (app/passkeys.py), then e-mail with password, each with the outlined
+   button. Without ORCID on this installation no way stands back. The passkey starts only with its button: no
+   suggestion in the address field, nothing by itself. #}
+{% set other = "button button-secondary" if config.ORCID_CLIENT_ID else "button" %}
 <div class="sign-in">
   <h1>{{ de_en("Anmelden", "Sign in") }}</h1>
   {% if config.ORCID_CLIENT_ID %}
   <section class="panel">
     <h2>{{ de_en("Mit ORCID", "With ORCID") }}</h2>
+    <p class="muted">{{ de_en("Kein eigenes Passwort nötig, und Ihre iD steht bei Zenodo an Ihrem Namen als Autorin oder Autor.",
+      "No password of your own needed, and your iD appears with your name as an author on Zenodo.") }}</p>
     <form method="post" action="{{ url_for('auth.login') }}" class="stack">{{ csrf() }}
       <input type="hidden" name="next" value="{{ nxt }}">
       <label><input type="checkbox" name="remember" value="1"> {{ de_en("Angemeldet bleiben (nur auf einem eigenen Gerät)", "Stay signed in (only on your own device)") }}</label>
@@ -19,29 +23,29 @@
   </section>
   {% endif %}
   <section class="panel">
+    <h2>{{ de_en("Mit Passkey", "With a passkey") }}</h2>
+    <form class="stack" data-passkey-sign-in data-options="{{ url_for('passkeys.sign_in_options') }}" data-verify="{{ url_for('passkeys.sign_in') }}">
+      {{ csrf() }}<input type="hidden" name="next" value="{{ nxt }}">
+      <label><input type="checkbox" name="remember" value="1"> {{ de_en("Angemeldet bleiben (nur auf einem eigenen Gerät)", "Stay signed in (only on your own device)") }}</label>
+      <div class="button-row"><button type="button" class="{{ other }}" data-passkey-start>{{ de_en("Mit Passkey anmelden", "Sign in with a passkey") }}</button></div>
+      <p class="flash flash-error" role="alert" data-passkey-error hidden></p>
+    </form>
+  </section>
+  <section class="panel">
     <h2>{{ de_en("Mit E-Mail-Adresse und Passwort", "With email address and password") }}</h2>
     <form method="post" action="{{ url_for('auth.sign_in') }}" class="stack">
       {{ csrf() }}<input type="hidden" name="next" value="{{ nxt }}">
       <label>{{ de_en("E-Mail-Adresse", "Email address") }}
-        <input type="email" name="email" value="{{ email }}" autocomplete="username" required autofocus></label>
+        <input type="email" name="email" value="{{ email }}" autocomplete="username" required{% if not config.ORCID_CLIENT_ID or email %} autofocus{% endif %}></label>
       <label>{{ de_en("Passwort", "Password") }}
         <input type="password" name="password" autocomplete="current-password" required></label>
       <label><input type="checkbox" name="remember" value="1"> {{ de_en("Angemeldet bleiben (nur auf einem eigenen Gerät)", "Stay signed in (only on your own device)") }}</label>
-      <div class="button-row"><button class="button">{{ de_en("Anmelden", "Sign in") }}</button>
+      <div class="button-row"><button class="{{ other }}">{{ de_en("Anmelden", "Sign in") }}</button>
         <a href="{{ url_for('auth.forgot_password') }}">{{ de_en("Passwort vergessen?", "Forgot your password?") }}</a></div>
     </form>
     <p class="muted small">{% if mail_enabled() %}{{ de_en("Ein Konto mit Passwort können Sie über eine persönliche Einladung anlegen. Ohne Einladung wenden Sie sich bitte an einen Admin der Plattform",
       "You can create a password account through a personal invitation. Without an invitation, please contact a platform admin") }}{% else %}{{ de_en("Für ein neues Konto mit Passwort wenden Sie sich bitte an einen Admin der Plattform", "For a new password account, please contact a platform admin") }}{% endif %}{% if config.IMPRINT_EMAIL %}
       (<a href="mailto:{{ config.IMPRINT_EMAIL }}">{{ config.IMPRINT_EMAIL }}</a>){% endif %}{{ de_en(": Dort erfahren Sie, welche Zugangsmöglichkeiten verfügbar sind.", ": they can tell you which access options are available.") }}</p>
-  </section>
-  <section class="panel">
-    <h2>{{ de_en("Mit Passkey", "With a passkey") }}</h2>
-    <form class="stack" data-passkey-sign-in data-options="{{ url_for('passkeys.sign_in_options') }}" data-verify="{{ url_for('passkeys.sign_in') }}">
-      {{ csrf() }}<input type="hidden" name="next" value="{{ nxt }}">
-      <label><input type="checkbox" name="remember" value="1"> {{ de_en("Angemeldet bleiben (nur auf einem eigenen Gerät)", "Stay signed in (only on your own device)") }}</label>
-      <div class="button-row"><button type="button" class="button" data-passkey-start>{{ de_en("Mit Passkey anmelden", "Sign in with a passkey") }}</button></div>
-      <p class="flash flash-error" role="alert" data-passkey-error hidden></p>
-    </form>
   </section>
 </div>
 {% endblock %}

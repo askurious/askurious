@@ -21,7 +21,7 @@ Die drei Arten heißen überall gleich, damit ein Knopf, ein Etikett und ein Fil
 Die Zählung trennt echte Teilnahmen von Dummy-Daten, damit niemand simulierte Daten für die Feldphase hält.
 
 **Anmelden.**
-Forschende melden sich mit ihrer ORCID iD, mit E-Mail-Adresse und Passwort oder mit einem Passkey an; die drei Wege stehen gleichrangig auf der Anmeldeseite.
+Forschende melden sich mit ihrer ORCID iD, mit E-Mail-Adresse und Passwort oder mit einem Passkey an; alle drei Wege sind vollwertig, ORCID steht auf der Anmeldeseite an erster Stelle.
 ORCID verbindet eine Person mit ihren Veröffentlichungen; die Reihenfolge der Forschenden einer Befragung ist die Reihenfolge der Autorinnen und Autoren im späteren Datenpaket (Entscheidungen vom 2026-09-26 und 2026-10-01).
 
 ---
