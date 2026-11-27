@@ -111,3 +111,19 @@ def test_models_have_pages_of_their_own(app, client, survey):
     assert 'class="back-link" href="/surveys/1/results#analyses"' in page and "res-fold" not in page
     assert client.get("/surveys/1/results/longitudinal").status_code == 404
     assert client.get("/surveys/1/results/vignettes?go=1").status_code == 404
+
+
+def test_results_page_keeps_the_pool_in_a_dialog_and_its_order(app, client, survey):
+    """Stage 3: the saved data pool stands in a dialog opened from the line of the basis, "Nur diese Ansicht" stays
+    in the page; the analyses come before the questions."""
+    prepared(app, client)
+    html = client.get("/surveys/1/results").data.decode()
+    line = html[html.index('id="basis-line"'):]
+    assert 'data-dialog-open="pool-dialog"' in line[:line.index("</p>")] and "Datenpool …" in line[:line.index("</p>")]
+    dialog = html[html.index('<dialog class="person-dialog xp-dialog" id="pool-dialog"'):]
+    dialog = dialog[:dialog.index("</dialog>")]
+    assert 'id="pool-form"' in dialog and "Gespeichert für die Befragung" in dialog and 'name="source"' in dialog
+    zones = html[html.index('class="basis-zones"'):html.index('id="pool-dialog"')]
+    assert "Nur diese Ansicht" in zones and 'id="pool-form"' not in zones
+    assert html.index('id="basis-line"') < html.index('id="analyses"') < html.index('id="res-cbc"')
+    assert "quota-results" not in html

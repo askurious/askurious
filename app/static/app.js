@@ -7054,6 +7054,18 @@ document.addEventListener("toggle", function (e) {
   e.target.querySelectorAll("audio[data-preload-open][preload=none]").forEach(function (a) { a.preload = "metadata"; a.load(); });
 }, true);
 
+// Ergebnisse: the saved data pool in its dialog (surveys/_results_basis.html). It saves by itself; when the dialog
+// closes after a change, the page loads anew and computes with the saved pool, as it did when the pool stood in the page.
+(function () {
+  var dialog = document.getElementById("pool-dialog");
+  if (!dialog) return;
+  var changed = false;
+  dialog.addEventListener("change", function () { changed = true; });
+  dialog.addEventListener("close", function () {
+    if (changed) setTimeout(function () { location.reload(); }, 900);  // the save of the last tick first
+  });
+})();
+
 // Dialogs of the export pages (surveys/_export_rows.html): a button with data-dialog-open opens the dialog of that
 // id, data-dialog-close closes it, and a dialog with data-open-now opens at once (the result of the last step:
 // a new token, a matching of waves, a draw). Without script the dialogs stay closed; the page still loads.

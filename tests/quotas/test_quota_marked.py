@@ -5,6 +5,7 @@ from datetime import timedelta
 from app import duplicate, quotas, transfer
 from app.extensions import db
 from app.models import QuotaCell, Response, Survey, utcnow
+from tests.helpers.report_page import report_page
 from tests.quotas.test_quotas import Q, build, screen, start
 
 
@@ -63,7 +64,7 @@ def test_on_a_marked_completion_gives_its_place_back(app, client, survey):
         assert quotas.recount(s) == []                                                      # the participations say the same
         assert quotas._from_responses(s)[0][1] == {"running": 0, "done": 1, "refused": 0, "over": 0, "freed": 1}
     # the report: not reached, but shown as marked and as having freed its place
-    html = client.get("/surveys/1/results").data.decode()
+    html = report_page(app)
     assert "markiert</th>" in html and "ihren Quotenplatz wieder freigegeben" in html
     assert "(1 markiert, frei)" in client.get("/surveys/1/flow/quotas/").data.decode()
     from app import methods

@@ -297,15 +297,8 @@ def results(survey_id):
 
         # the market simulator (CBC) and "Auswahl aus Aussagen" (MaxDiff): computed from the scenario in the address;
         # the scenarios the page opens with are kept under the fingerprint of the results (simulator.page)
-        opening = None
-        if keep:
-            opened = results_store.load(survey, key, f, name="sim")
-            opening = dict(opened[0]) if opened is not None else {}
-        marks = {k: v[0] for k, v in (opening or {}).items()}
-        sims = {} if run or only is not None else simulator.page(data, request.args, f["weighted"], survey.can(current_user, "editor"),
-                                             kept=opening)
-        if opening is not None and {k: v[0] for k, v in opening.items()} != marks:
-            results_store.save(survey, key, opening, f, name="sim", basis=key)
+        # since the analyses have pages of their own (surveys/analysis.py) the simulator is computed and kept there
+        sims = {}
         from app import hypotheses as hypotheses_mod
 
         from app import panel as panel_mod

@@ -217,7 +217,8 @@ def test_data_pool_is_the_same_on_export_and_results(app, client, survey):
 
     def pool(url):
         html = client.get(url).data.decode()
-        box = html.split('id="pool"')[1].split("</form>")[0]
+        # on the results page the saved pool stands in its dialog (stage 3 of the restructuring of the results part)
+        box = html.split('id="pool-dialog"' if 'id="pool-dialog"' in html else 'id="pool"')[1].split("</form>")[0]
         box = re.sub(r'<summary>.*?</summary>|<div class="settings-body">|<h2>.*?</h2>|<span class="hint">.*?</span>|<input type="hidden"[^>]*>|method="[a-z]+"|id="[a-z-]+-form"|action="[^"]*"| data-autosave-form',
                      "", box)                                                 # the same fields; heading, hints and target differ
         box = re.sub(r'^[^>]*>', "", box)                                     # the tag itself: section or details
