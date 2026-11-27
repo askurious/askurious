@@ -1,15 +1,16 @@
 """After a dump was played back, deploy/docker/reapply_erasures.py also brings back what ended links and sign-ins
 since the dump: revoked links and accesses go again, a blocked or renewed interviewer link and a blocked account stay
 so, sessions signed out stay signed out, a password or second factor changed since the dump is not replaced by the
-old one, and entries of invitation lists that opted out or were deleted do not come back."""
+old one, a passkey removed since the dump signs nobody in again, and entries of invitation lists that opted out or
+were deleted do not come back."""
 import shutil
 from datetime import timedelta
 
 import pytest
 
 from app.extensions import db
-from app.models import (AgentToken, AiChatTurn, InterviewerAccess, MailOutbox, MemberInvite, Response, SurveyInvite,
-                        User, UserLogin, utcnow)
+from app.models import (AgentToken, AiChatTurn, InterviewerAccess, MailOutbox, MemberInvite, Passkey, Response,
+                        SurveyInvite, User, UserLogin, utcnow)
 from tests.platform.test_audit10_betrieb import _close, _tool
 from tests.privacy.test_erasure import build, take
 
@@ -26,6 +27,8 @@ def _before_the_dump(app):
                                  password_changed_at=utcnow() - timedelta(days=9), totp_box="old-factor",
                                  session_version=3, status="active"))
         db.session.add_all([
+            Passkey(user_id=user.id, credential_id="weg", public_key="k1", user_handle="h", name="Verloren"),
+            Passkey(user_id=user.id, credential_id="bleibt", public_key="k2", user_handle="h", name="Laptop"),
             AgentToken(user_id=1, name="weg", token_hash="a" * 64, expires_at=LATER),
             AgentToken(user_id=1, name="bleibt", token_hash="b" * 64, expires_at=LATER),
             MemberInvite(email="x@example.org", role="editor", token_hash="c" * 64, survey_id=1, created_by_id=1,
@@ -46,6 +49,7 @@ def _before_the_dump(app):
 def _since_the_dump(app, user_id):
     with app.app_context():
         db.session.execute(db.delete(AgentToken).where(AgentToken.name == "weg"))            # revoked
+        db.session.execute(db.delete(Passkey).where(Passkey.credential_id == "weg"))        # removed (a lost device)
         db.session.execute(db.delete(MemberInvite))                                         # withdrawn
         access = db.session.scalar(db.select(InterviewerAccess))
         access.blocked, access.revision, access.token_hash = True, "r2", "e" * 64           # blocked, new link
@@ -93,6 +97,8 @@ def test_what_ended_links_and_sign_ins_since_the_dump_holds_after_the_restore(ap
         assert db.session.scalar(db.select(db.func.count(AgentToken.id))) == 2               # everything is back
         dry = tool.apply(db.engine, saved)
         assert dry["links"]["agent_token"] == 1 and dry["passwords"] == [user_id] and dry["optouts"] == 1
+        assert dry["tokens"]["passkey"] == 1
+        assert db.session.scalar(db.select(db.func.count(Passkey.id))) == 2                  # the removed one is back
         assert db.session.scalar(db.select(db.func.count(AgentToken.id))) == 2               # a dry run changes nothing
     if tables_only:
         _close(app)
@@ -108,6 +114,7 @@ def test_what_ended_links_and_sign_ins_since_the_dump_holds_after_the_restore(ap
     with app.app_context():
         assert [t.name for t in db.session.scalars(db.select(AgentToken))] == ["bleibt"]
         assert db.session.scalar(db.select(MemberInvite)) is None
+        assert [p.name for p in db.session.scalars(db.select(Passkey))] == ["Laptop"]   # the removed passkey is gone again
         access = db.session.scalar(db.select(InterviewerAccess))
         assert (access.blocked, access.revision, access.token_hash) == (True, "r2", "e" * 64)
         login = db.session.get(UserLogin, user_id)
@@ -121,6 +128,7 @@ def test_what_ended_links_and_sign_ins_since_the_dump_holds_after_the_restore(ap
             assert db.session.scalar(db.select(AiChatTurn)) is None         # what the app's way takes along
     out = capsys.readouterr().out
     assert f"Konto {user_id} hat sein Passwort seit dem Dump geändert" in out and "zweiten Faktor" in out
+    assert "Passkeys: 1" in out
 
 
 def test_a_sign_out_before_the_dump_is_never_taken_back(app, client, survey, tmp_path):

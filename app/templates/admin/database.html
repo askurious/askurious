@@ -19,7 +19,7 @@
 {% if sec and (sec["keys"] or sec.skipped) %}
 <section class="panel" id="sicherheit">
   <h2>{{ de_en("Sicherheit des Betriebs", "Operational security") }} <span class="hint">{{ de_en("Einstellungen des Servers, die nur dort geändert werden", "settings of the server that are changed only there") }}</span></h2>
-  <p>{{ de_en("Admins melden sich mit ORCID oder mit Passwort und Authenticator-Code an. Bei einer ORCID-Anmeldung ist kein zusätzlicher App-Code verpflichtend.", "Admins sign in with ORCID or with a password and an authenticator code. An ORCID sign-in does not require an additional app code.") }}</p>
+  <p>{{ de_en("Admins melden sich mit ORCID, mit Passwort und Authenticator-Code oder mit einem Passkey an. Bei einer ORCID-Anmeldung ist kein zusätzlicher App-Code verpflichtend; eine Anmeldung mit Passkey zählt wie Passwort mit Code.", "Admins sign in with ORCID, with a password and an authenticator code, or with a passkey. An ORCID sign-in does not require an additional app code; a sign-in with a passkey counts like password and code.") }}</p>
   {% if sec["keys"] %}
   <p class="flash flash-warning"><strong>{{ de_en("Schwache Schlüssel:", "Weak keys:") }}</strong> {% for name, kind in sec["keys"] %}<code>{{ name }}</code>{{ ", " if not loop.last }}{% endfor %}.
     {{ de_en("Ein kurzer oder wenig zufälliger Schlüssel lässt sich aus einer Kopie der Datenbank erraten. Neuen Zufallsschlüssel setzen, den alten als Rückfall behalten (deploy/docker/BETRIEB.md, „Schlüssel wechseln“).", "A short or hardly random key can be guessed from a copy of the database. Set a new random key and keep the old one as a fallback (deploy/docker/BETRIEB.md, “Schlüssel wechseln”).") }}</p>

@@ -470,7 +470,9 @@ def _activities():
          "data": de_en("ORCID iD, Name, E-Mail-Adresse (mit dem Zeitpunkt ihrer Bestätigung per Mail oder dem Vermerk, "
                        "dass die Person sie auf der Seite eines Links selbst eingetragen hat und keine Mail sie bestätigt hat; "
                        "über eine solche Adresse findet die Personensuche das Konto nicht), Passwort als scrypt-Hash, Geheimnis der "
-                       "Zwei-Faktor-Anmeldung (verschlüsselt), Anmeldezeiten, grobe Browserbezeichnung der Sitzungen, "
+                       "Zwei-Faktor-Anmeldung (verschlüsselt), Passkeys (je Passkey Kennung, öffentlicher Schlüssel, zufällige "
+                       "Kennung des Kontos für das Gerät, selbst gewählter Name, Zeitpunkt des Anlegens und der letzten Verwendung, "
+                       "Zähler, Merkmal synchronisiert; kein privater Schlüssel, keine Hersteller- oder Modellangabe), Anmeldezeiten, grobe Browserbezeichnung der Sitzungen, "
                        "Zustimmung zu den Nutzungsbedingungen, Rollen und Gruppen, Organisationen (Heimat, Mitgliedschaft, Admin-Rolle), "
                        "freigegebene Befragungstypen, Nutzertyp mit Beginn und "
                        "Ende der Laufzeit, betreuende Person und Lehrveranstaltung, Einladungslink der Registrierung oder Gründungslink, "
@@ -480,7 +482,9 @@ def _activities():
                        "ORCID iD, name, email address (with the time a mail confirmed it, or the mark that the person "
                        "entered it on a link's page and no mail confirmed it; the people search does not find the account "
                        "by such an address), password as a scrypt hash, secret of the two-factor "
-                       "sign-in (encrypted), sign-in times, coarse browser label of the sessions, acceptance of the terms "
+                       "sign-in (encrypted), passkeys (per passkey its identifier, public key, a random identifier of the "
+                       "account for the device, the name the person chose, the time it was added and last used, counter, "
+                       "the mark synchronised; no private key, no make or model of the device), sign-in times, coarse browser label of the sessions, acceptance of the terms "
                        "of use, roles and groups, organisations (home, membership, admin role), enabled survey types, user type with "
                        "start and end of the period, supervising person "
                        "and course, invitation link of the registration or founding link, number of the label in organisations with hidden "
@@ -491,7 +495,8 @@ def _activities():
                            "Kennung und Datum; Mitgliedschaften, Heimat und Admin-Rolle in Organisationen gehen mit dem "
                            "Konto. E-Mail-Adresse und Passwort-Hash auch, wenn die Person diese Anmeldung auf der "
                            "Seite „Konto › Profil und Anmeldung“ entfernt (nur solange ORCID verbunden ist); die ORCID iD, wenn die Person sie dort trennt (nur "
-                           "mit Passwort). Vorgemerkte Konten (iD und Name einer Person, die vor ihrer ersten Anmeldung "
+                           "mit Passwort); ein Passkey, wenn die Person ihn dort entfernt oder Admins der Plattform die "
+                           "Passkeys des Kontos entfernen. Vorgemerkte Konten (iD und Name einer Person, die vor ihrer ersten Anmeldung "
                            "hinzugefügt wurde): bis zur ersten Anmeldung, gelöscht vom stündlichen Lauf, sobald keine "
                            "Befragung, Gruppe, Organisation, Freigabe oder kein Adressbuch sie mehr nennt. Befristete Nutzertypen: Sperre am Ende der Laufzeit, Löschung nach der "
                            "Löschfrist des Typs (voreingestellt 6 Monate, Lehrveranstaltungen 3 Monate), wenn nichts zu "
@@ -510,7 +515,8 @@ def _activities():
                            "Until the account is deleted (by the person or by admins); then only number, internal id and "
                            "date remain; memberships, home and admin role in organisations go with the account. Email "
                            "address and password hash also when the person removes this sign-in on the page “Account › Profile and sign-in” "
-                           "(only while ORCID is connected); the ORCID iD when the person disconnects it there (only with a password). "
+                           "(only while ORCID is connected); the ORCID iD when the person disconnects it there (only with a password); "
+                           "a passkey when the person removes it there or platform admins remove the passkeys of the account. "
                            "Pending accounts (iD and name of a person added before their first sign-in): until the first "
                            "sign-in, deleted by the hourly sweep as soon as no survey, group, organisation, share or address book names "
                            "them. User types limited in time: blocked at the end of the period, deleted after the "
@@ -1013,7 +1019,7 @@ def _activities():
                        "(Tabelle rate_hit, Schlüssel wechselt täglich), für neue Teilnahmen, Live-Stimmen, Beschwerden, Nachrichten an einen KI-Chat, den Umfang von Sprachaufnahmen (IPv6 auch je /48) "
                        "und Eingangsbestätigungen je E-Mail-Adresse ebenso (Tabelle rate_count), in nginx je Adresse nur im Arbeitsspeicher; "
                        "Sicherheitsprotokoll in der Containerausgabe (Anmeldungen, Fehlversuche, Sperren, Passwort- und "
-                       "Faktoränderungen, Einmal-Links, Einladungen, Beitrittslinks, Ratenbegrenzungen je Minute) mit "
+                       "Faktoränderungen, hinzugefügte und entfernte Passkeys, Einmal-Links, Einladungen, Beitrittslinks, Ratenbegrenzungen je Minute) mit "
                        "Kontonummer und täglich wechselndem Kurzwert des Netzes, ohne IP-Adresse, Passwörter oder Inhalte; dasselbe Protokoll "
                        "zusätzlich in Tagesdateien im Datenordner des Servers, 90 Tage aufbewahrt.",
                        "Backups of the database and of the uploaded files (all data); web server log of failed requests of the researchers' side only, "
@@ -1022,7 +1028,7 @@ def _activities():
                        "hash of the IP address in memory, for codes, sign-in, tokens and votes of a live vote per network and question, PDFs of the slides with notes per device (one minute) and estimations started per account (hash of the account number, one hour) in the database (table rate_hit, key "
                        "changes daily), likewise for new participations, live votes, complaints, messages to an AI chat, the size of voice recordings (IPv6 also per /48) and confirmations of "
                        "receipt per email address (table rate_count), in nginx per address in memory only; security log in the container output (sign-ins, "
-                       "failed attempts, locks, changes of password and factor, one-time links, invitations, join links, "
+                       "failed attempts, locks, changes of password and factor, passkeys added and removed, one-time links, invitations, join links, "
                        "rate limits per minute) with the account number and a daily changing hash of the network, without "
                        "IP address, passwords or contents; the same log also in daily files in the server's data folder, kept "
                        "90 days."),
@@ -1343,6 +1349,8 @@ def measures():
         totp = de_en("Admins: ORCID-Anmeldung oder Passwort mit Authenticator-Code; nach ORCID ist kein zusätzlicher "
                      "App-Code verpflichtend.", "Admins: ORCID sign-in or a password with an authenticator code; an "
                      "ORCID sign-in does not require an additional app code.")
+    totp += " " + de_en("Eine Anmeldung mit Passkey zählt wie Passwort mit Code und braucht keinen weiteren Code.",
+                        "A sign-in with a passkey counts like password and code and needs no further code.")
     totp += " " + de_en("Für andere Konten ist 2FA freiwillig; ein eingerichteter Faktor wird bei Passwortanmeldung und Passwort-Reset abgefragt. Passwortwechsel, Kontosperre und Überall abmelden widerrufen Datenzugänge und offene Einladungs-/Beitrittslinks und trennen Zenodo, Coscine und den eigenen KI-Zugang; ein erstes Passwort widerruft nichts. Die Sperre nach 100 Fehlversuchen in Folge hält einen Browser nicht auf, in dem sich das Konto mit seinem aktuellen Passwort schon angemeldet hat (signiertes Cookie, 90 Tage).",
                          "For other accounts, 2FA is optional; an enabled factor is required at password sign-in and password reset. Password changes, account blocks and signing out everywhere revoke data access tokens and pending invitations/join links and disconnect Zenodo, Coscine and the own AI access; a first password revokes nothing. The lock after 100 wrong attempts in a row does not hold a browser in which the account signed in with its current password before (signed cookie, 90 days).")
     return [
@@ -1377,6 +1385,27 @@ def measures():
                    "after repeated failures per sender and account, lock until an admin releases it after 100 failures "
                    "in a row"), "app/passwords.py"),
             (totp, "app/twofactor.py"),
+            (de_en("Passkeys (WebAuthn) als dritter Anmeldeweg neben ORCID und Passwort, freiwillig und immer zusätzlich zu "
+                   "einem der beiden: Der Server hält nur den öffentlichen Schlüssel; das Gerät prüft die Person "
+                   "(Fingerabdruck, Gesichtserkennung, Geräte-PIN oder Sicherheitsschlüssel, Nutzerprüfung erzwungen), "
+                   "deshalb zählt die Anmeldung wie Passwort mit Code, auch für Admins. Gebunden an die Hauptadresse (die "
+                   "Adresse der Teilnehmenden kann einen Passkey nicht benutzen; Permissions-Policy erlaubt den Dialog nur "
+                   "auf Seiten der Forschenden), Einmalwert je Versuch (5 Minuten, einmal gültig), keine Attestierung, "
+                   "höchstens 10 je Konto. Hinzufügen nur mit aktuellem Passwort (und Code, wenn eingerichtet) oder frischer "
+                   "Anmeldung; Hinzufügen und Entfernen im Sicherheitsprotokoll und per E-Mail an die Person. Eine "
+                   "Kontosperre sperrt auch diesen Weg; Admins können alle Passkeys eines Kontos entfernen. Nach dem "
+                   "Zurückspielen eines Dumps werden seither entfernte Passkeys wieder gelöscht",
+                   "Passkeys (WebAuthn) as a third way to sign in besides ORCID and password, voluntary and always in "
+                   "addition to one of the two: the server holds the public key only; the device verifies the person "
+                   "(fingerprint, face recognition, device PIN or a security key, user verification required), so the "
+                   "sign-in counts like password and code, also for admins. Bound to the main address (the participants' "
+                   "address cannot use a passkey; Permissions-Policy allows the dialog on researchers' pages only), a "
+                   "one-time value per attempt (5 minutes, valid once), no attestation, at most 10 per account. Adding "
+                   "only with the current password (and a code where set up) or a fresh sign-in; adding and removing in "
+                   "the security log and by email to the person. Blocking an account blocks this way too; admins can "
+                   "remove all passkeys of an account. After a dump is played back, passkeys removed since are deleted "
+                   "again"),
+             "app/passkeys.py, app/static/passkey.js, deploy/docker/reapply_erasures.py"),
             (de_en("Aktionen, die Zugänge vergeben oder entziehen, verlangen eine Anmeldung von höchstens 15 Minuten; eine "
                    "ORCID-Anmeldung zählt nur, wenn ORCID dabei das Passwort abgefragt hat (auth_time im ID-Token, dessen "
                    "Signatur mit den öffentlichen Schlüsseln von ORCID geprüft wird). Für den Weg über "
@@ -1704,9 +1733,9 @@ def measures():
                    "comments, mails; those for codes, sign-in and tokens for all processes in the database; and a brake "
                    "per address in nginx"),
              "config.py, app/limits.py, deploy/docker/nginx"),
-            (de_en("Sicherheitsprotokoll: Anmeldungen, Fehlversuche, Sperren, Passwort- und Faktoränderungen, Einmal-Links, "
+            (de_en("Sicherheitsprotokoll: Anmeldungen, Fehlversuche, Sperren, Passwort- und Faktoränderungen, Passkeys, Einmal-Links, "
                    "Einladungen und Beitrittslinks, Ratenbegrenzungen; ohne IP-Adresse und ohne Geheimnisse",
-                   "Security log: sign-ins, failed attempts, locks, changes of password and factor, one-time links, "
+                   "Security log: sign-ins, failed attempts, locks, changes of password and factor, passkeys, one-time links, "
                    "invitations and join links, rate limits; without IP address and without secrets"),
              "app/security_log.py"),
             (de_en("Kosten- und Lastgrenzen der KI: Tagesbudget der Plattform, gleichzeitige Aufrufe, Ausgabelimit",

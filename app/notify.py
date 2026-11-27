@@ -323,6 +323,11 @@ def backup_code_used(user):
     return _account_alert(user, ":warning: *Ersatzcode benutzt* (Admin-Konto)")
 
 
+def passkey_added(user):
+    """A passkey was added to a site admin's account: a further way into the administration."""
+    return _account_alert(user, ":key: *Passkey hinzugefügt* (Admin-Konto)")
+
+
 def factor_off(user):
     """A site admin switched the second factor off."""
     return _account_alert(user, ":warning: *Zweiter Faktor ausgeschaltet* (Admin-Konto)")

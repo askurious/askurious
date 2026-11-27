@@ -180,6 +180,7 @@ NOT_GRANTED = {
     "coding_memo": "memos of those analyses (researchers' side)",
     "coding_key": "keys 1 to 9 of the coders in those analyses (researchers' side)",
     "login_session": "researchers' sign-ins per browser",
+    "passkey": "researchers' passkeys for signing in (app/passkeys.py)",
     "researcher_activity": "active sign-in sessions of researchers per hour (Administration > Befragungen)",
     "member_invite": "invitations of researchers to surveys and groups",
     "org_alias": "numbers of hidden names in organisations, shown on researchers' pages only",

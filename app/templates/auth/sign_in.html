@@ -1,18 +1,20 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf, orcid_icon %}
 {% block title %}{{ de_en("Anmelden", "Sign in") }}{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='passkey.js') }}" defer></script>{% endblock %}
 {% block content %}
+{# three ways in, each with the same weight and the same kind of button (Ralf 2026-11-06 and 2026-11-27): ORCID,
+   e-mail with password, a passkey (app/passkeys.py). The passkey starts only with its button: no suggestion in the
+   address field, nothing by itself. #}
 <div class="sign-in">
   <h1>{{ de_en("Anmelden", "Sign in") }}</h1>
   {% if config.ORCID_CLIENT_ID %}
   <section class="panel">
-    <h2>{{ de_en("Mit ORCID", "With ORCID") }} <span class="hint">{{ de_en("empfohlen", "recommended") }}</span></h2>
-    <p class="muted">{{ de_en("Ihre ORCID iD weist Sie als Forschende oder Forschenden aus; ein eigenes Passwort für Askurious brauchen Sie dann nicht.",
-      "Your ORCID iD identifies you as a researcher; you then need no password of your own for Askurious.") }}</p>
-    <form method="post" action="{{ url_for('auth.login') }}">{{ csrf() }}
+    <h2>{{ de_en("Mit ORCID", "With ORCID") }}</h2>
+    <form method="post" action="{{ url_for('auth.login') }}" class="stack">{{ csrf() }}
       <input type="hidden" name="next" value="{{ nxt }}">
       <label><input type="checkbox" name="remember" value="1"> {{ de_en("Angemeldet bleiben (nur auf einem eigenen Gerät)", "Stay signed in (only on your own device)") }}</label>
-      <button class="button">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden", "Sign in with ORCID") }}</button>
+      <div class="button-row"><button class="button">{{ orcid_icon() }}{{ de_en("Mit ORCID anmelden", "Sign in with ORCID") }}</button></div>
     </form>
   </section>
   {% endif %}
@@ -25,12 +27,21 @@
       <label>{{ de_en("Passwort", "Password") }}
         <input type="password" name="password" autocomplete="current-password" required></label>
       <label><input type="checkbox" name="remember" value="1"> {{ de_en("Angemeldet bleiben (nur auf einem eigenen Gerät)", "Stay signed in (only on your own device)") }}</label>
-      <div class="button-row"><button class="button button-secondary">{{ de_en("Anmelden", "Sign in") }}</button>
+      <div class="button-row"><button class="button">{{ de_en("Anmelden", "Sign in") }}</button>
         <a href="{{ url_for('auth.forgot_password') }}">{{ de_en("Passwort vergessen?", "Forgot your password?") }}</a></div>
     </form>
     <p class="muted small">{% if mail_enabled() %}{{ de_en("Ein Konto mit Passwort können Sie über eine persönliche Einladung anlegen. Ohne Einladung wenden Sie sich bitte an einen Admin der Plattform",
       "You can create a password account through a personal invitation. Without an invitation, please contact a platform admin") }}{% else %}{{ de_en("Für ein neues Konto mit Passwort wenden Sie sich bitte an einen Admin der Plattform", "For a new password account, please contact a platform admin") }}{% endif %}{% if config.IMPRINT_EMAIL %}
       (<a href="mailto:{{ config.IMPRINT_EMAIL }}">{{ config.IMPRINT_EMAIL }}</a>){% endif %}{{ de_en(": Dort erfahren Sie, welche Zugangsmöglichkeiten verfügbar sind.", ": they can tell you which access options are available.") }}</p>
+  </section>
+  <section class="panel">
+    <h2>{{ de_en("Mit Passkey", "With a passkey") }}</h2>
+    <form class="stack" data-passkey-sign-in data-options="{{ url_for('passkeys.sign_in_options') }}" data-verify="{{ url_for('passkeys.sign_in') }}">
+      {{ csrf() }}<input type="hidden" name="next" value="{{ nxt }}">
+      <label><input type="checkbox" name="remember" value="1"> {{ de_en("Angemeldet bleiben (nur auf einem eigenen Gerät)", "Stay signed in (only on your own device)") }}</label>
+      <div class="button-row"><button type="button" class="button" data-passkey-start>{{ de_en("Mit Passkey anmelden", "Sign in with a passkey") }}</button></div>
+      <p class="flash flash-error" role="alert" data-passkey-error hidden></p>
+    </form>
   </section>
 </div>
 {% endblock %}

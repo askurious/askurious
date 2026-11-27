@@ -19,3 +19,5 @@ pypdf==6.21.4
 arabic-reshaper==3.0.1
 python-bidi==0.6.12
 google-re2==1.1.20251105
+# passkeys (WebAuthn) as a way to sign in (app/passkeys.py); needs only cryptography
+fido2==2.2.1

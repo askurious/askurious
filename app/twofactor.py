@@ -6,7 +6,8 @@ before the administration (Ralf 2026-11-20, config ADMIN_CODE_AFTER_ORCID, on by
 an ORCID sign-in was enough). ORCID does not tell whether a second factor was used there, so a taken-over ORCID
 account would otherwise be the whole platform. Admins of an organisation still pass with an ORCID sign-in
 (org_gate). Unknown/link sessions need a code for admin pages and rights. ADMIN_TOTP offers the factor to other
-accounts; everyone can set it up for their password sign-in.
+accounts; everyone can set it up for their password sign-in. A sign-in with a passkey (app/passkeys.py, VIA_PASSKEY)
+counts like password and code, for everyone: the device verified the person, so no code is asked on top.
 
 The secret (160 bits, base32) is kept encrypted with the app's key box (secrets_box) in UserLogin.totp_box; a code
 counts once (UserLogin.totp_step), and the time step before and after the current one is accepted (30 seconds, the
@@ -57,6 +58,10 @@ ALERT_GAP = timedelta(hours=1)  # at most one Slack message about wrong codes pe
 # never acts as a site admin and never sets the factor up (audit 2026-10-09b, T3)
 SIGNED_IN_VIA = "signed_in_via"
 VIA_PASSWORD, VIA_CODE, VIA_ORCID, VIA_LINK = "password", "password+code", "orcid", "link"
+# a sign-in with a passkey (app/passkeys.py): the device verified the person (fingerprint, face, PIN), so it stands
+# for two factors and counts wherever "password+code" does; no code from the authenticator app is asked on top
+VIA_PASSKEY = "passkey"
+VIAS = (VIA_PASSWORD, VIA_CODE, VIA_ORCID, VIA_LINK, VIA_PASSKEY)  # what a session cookie may say (auth.load_user)
 
 
 # --- the code ------------------------------------------------------------------------------------------------
@@ -365,7 +370,7 @@ def alert_wrong_code(user):
 
 # the messages that name an admin account: for any other account (a voluntary second factor) they stay in the
 # security log only, with no name in Slack (Abgleich 2026-10-15, T01-N1)
-ADMIN_ONLY = {"wrong_code", "backup_code_used", "admin_password_reset", "factor_off"}
+ADMIN_ONLY = {"wrong_code", "backup_code_used", "admin_password_reset", "factor_off", "passkey_added"}
 
 
 def _site_admin(user):
@@ -402,6 +407,12 @@ def verified():
             and time.time() - float(entry.get("at") or 0) <= hours * 3600)
 
 
+def by_passkey():
+    """Whether this browser signed in with a passkey: as good as password and code (VIA_PASSKEY), so the pages of the
+    administration ask for no code and no factor has to be set up for them."""
+    return via() == VIA_PASSKEY
+
+
 def orcid_exempt(user=None):
     """Whether this browser's ORCID sign-in spares the account the code: never a site admin while
     ADMIN_CODE_AFTER_ORCID is on (Ralf 2026-11-20), everyone else as before (Ralf 2026-10-13)."""
@@ -415,7 +426,7 @@ def orcid_exempt(user=None):
 def gate():
     """For pages of the administration: None if the admin may go on; else the way to the setup or to the code,
     back to this page afterwards."""
-    if not current_user.is_authenticated or orcid_exempt():
+    if not current_user.is_authenticated or orcid_exempt() or by_passkey():
         return None
     if not active() and not required_at_signin(current_user) and not getattr(current_user, "is_admin", False):
         return None
@@ -435,7 +446,7 @@ def org_gate():
     """For the pages of an organisation's admins (app/org_admin.py, A20): as for the administration, after a sign-in
     with a password a code from the authenticator app, set up first if need be; an ORCID sign-in is enough, except
     for a site admin while ADMIN_CODE_AFTER_ORCID is on (orcid_exempt)."""
-    if not current_user.is_authenticated or orcid_exempt():
+    if not current_user.is_authenticated or orcid_exempt() or by_passkey():
         return None
     back = local_path(request.full_path.rstrip("?")) if request.method == "GET" else None
     if not enabled(current_user):
@@ -473,7 +484,7 @@ def admin_rights(user):
     own = has_request_context() and current_user.is_authenticated and current_user.id == user.id
     if own and via() == VIA_PASSWORD:
         return False  # a password without a code is never enough for a site admin (T3; auth.load_user ends it too)
-    if own and orcid_exempt(user):
+    if own and (orcid_exempt(user) or by_passkey()):
         return True
     return own and enabled(user) and verified()
 
@@ -541,7 +552,7 @@ def setup():
             _event("second_factor_on")
             _mail_factor_on(current_user)
             session.pop("totp_setup", None)
-            if via() != VIA_ORCID:
+            if via() not in (VIA_ORCID, VIA_PASSKEY):
                 from app import auth
 
                 auth.remember(current_user._get_current_object(), fresh=False, via=VIA_CODE)

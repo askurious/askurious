@@ -19,7 +19,8 @@ PARTICIPANT_BLUEPRINTS = ("participate", "preview_share", "live_public", "diary_
 # forms anyone can open: sign-in, "Passwort vergessen?" and the check of a cited state; never kept either (audit
 # 2026-10-09b, O4)
 NO_STORE_ENDPOINTS = ("auth.sign_in", "auth.forgot_password", "public.verify")
-PERMISSIONS = "camera=(), microphone=(), geolocation=(), display-capture=(), payment=(), usb=(), serial=(), bluetooth=(), interest-cohort=()"
+PERMISSIONS = ("camera=(), microphone=(), geolocation=(), display-capture=(), payment=(), usb=(), serial=(), bluetooth=(), "
+               "interest-cohort=(), publickey-credentials-get=(), publickey-credentials-create=()")
 
 
 
@@ -520,6 +521,9 @@ def create_app(config_class=Config, server=False):
     from app import twofactor
 
     app.register_blueprint(twofactor.bp)
+    from app import passkeys
+
+    app.register_blueprint(passkeys.bp)  # signing in with a passkey (WebAuthn), a third way besides ORCID and password
     from app import invites
 
     app.register_blueprint(invites.bp)  # invitations by e-mail address (mail on only)
@@ -1150,6 +1154,11 @@ def create_app(config_class=Config, server=False):
             allowed = allowed.replace("geolocation=()", "geolocation=(self)")
         if g.get("display_capture"):
             allowed = allowed.replace("display-capture=()", "display-capture=(self)")
+        if side == hosts.RESEARCHER:
+            # passkeys (app/passkeys.py) on the researchers' pages only, and only for the page itself, never a frame;
+            # a participant page cannot ask the browser for one
+            allowed = allowed.replace("publickey-credentials-get=()", "publickey-credentials-get=(self)").replace(
+                "publickey-credentials-create=()", "publickey-credentials-create=(self)")
         response.headers.setdefault("Permissions-Policy", allowed)
         response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
         # pages and data for signed-in people (results, settings, one-time links, keys) are not kept by the browser

@@ -12,8 +12,8 @@ Two steps around the restore, with the app stopped:
     python reapply_erasures.py apply --do       ... and does it
 
 "save" writes instance/reapply-erasures.json (readable by the server user only; --file elsewhere): the ids of the
-participations, the entries of the separated section, the surveys, the accounts, the read tokens, sign-in tokens and
-sessions there are now, the deleted accounts, every seal chain entry and timestamp, and the deletion counters
+participations, the entries of the separated section, the surveys, the accounts, the read tokens, sign-in tokens,
+sessions and passkeys there are now, the deleted accounts, every seal chain entry and timestamp, and the deletion counters
 (models.Erasure); the ids of the links and accesses (LINKS), of the people of diary studies and of the entries of
 invitation lists with their state; and what says whether a link or a sign-in still holds (STATE: blocked, renewed,
 used, the status and sign-in version of an account, when its password changed, a digest of its locked second
@@ -25,7 +25,8 @@ factor). No answers, no addresses, no password hashes. "apply" compares the rest
     that quote them, paper scans, quota counters, saved states, kept results and estimates follow as at the first
     deletion; a case the restored chain still names gets its deletion record there;
   - the deletion counters per survey, day and way go back up to what they were;
-  - read tokens (data_token), sign-in tokens and sessions that were gone are deleted again; so are agent tokens,
+  - read tokens (data_token), sign-in tokens, sessions and passkeys that were gone are deleted again (a passkey
+    removed since the dump signs nobody in again); so are agent tokens,
     interviewer links, dashboard and quota links, join, registration and founding links and invitations revoked,
     used up or withdrawn since the dump, and the people of a diary study who left since;
   - links and accounts that stayed get back what ended them since the dump: an interviewer link blocked or renewed,
@@ -64,7 +65,8 @@ import sqlalchemy as sa
 
 FILE = os.path.join("instance", "reapply-erasures.json")
 CHUNK = 500
-TOKENS = ("data_token", "auth_token", "login_session")  # gone since the dump: revoked, used or signed out
+# gone since the dump: revoked, used, signed out or (passkey) removed by the person or a site admin
+TOKENS = ("data_token", "auth_token", "login_session", "passkey")
 # links and accesses whose row goes when they are revoked, withdrawn or used up: gone again as well
 LINKS = ("agent_token", "interviewer_access", "board_share", "quota_share", "group_join_link", "sign_up_link",
          "org_found_link", "member_invite")
@@ -647,7 +649,7 @@ def _print(report, data, do):
           f" {report['anchors']} Zeitstempel zurück")
     tokens = report.get("tokens") or {}
     print(f"  Lese-Tokens {verb}: {tokens.get('data_token', 0)}, Anmelde-Tokens: {tokens.get('auth_token', 0)},"
-          f" Sitzungen: {tokens.get('login_session', 0)}")
+          f" Sitzungen: {tokens.get('login_session', 0)}, Passkeys: {tokens.get('passkey', 0)}")
     links = report.get("links") or {}
     if any(links.values()) or any((report.get("state") or {}).values()):
         print(f"  Links und Zugänge {verb}: " + (", ".join(f"{name} {n}" for name, n in sorted(links.items()) if n) or "0")

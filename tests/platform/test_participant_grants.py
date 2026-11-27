@@ -54,7 +54,7 @@ def test_researchers_secrets_stay_closed():
     # tell whether a pretest link still holds (app/editor/share.py)
     assert participant_grants.columns("user_login") == {"user_id", "email", "kinds", "status", "valid_until",
                                                         "session_version"}
-    for table in ("login_session", "auth_token", "agent_token", "data_token", "ai_access",
+    for table in ("login_session", "passkey", "auth_token", "agent_token", "data_token", "ai_access",
                   "access_log", "sign_in_orcid", "zenodo_connection", "coscine_connection", "account_job"):
         assert table in participant_grants.NOT_GRANTED, table
     assert participant_grants.GRANTS["alembic_version"][0] == ("SELECT",)

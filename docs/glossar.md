@@ -35,6 +35,7 @@ Begriffe, die die Oberfläche für Forschende einheitlich verwendet. Entstanden 
 | **Änderung der anderen Person laden**, **Meine Änderung behalten** | die Knöpfe nach einem Konflikt beim automatischen Speichern (UI/UX-Audit 16.10.2026, 54) | Deren Stand laden, Meinen Stand behalten |
 | **Bitte erneut versuchen.** | die feste Formel nach einem Fehler, englisch „Please try again.“; kurze Anweisungen im Infinitiv („Bitte … angeben.“), ganze Sätze mit „Sie“ (UI/UX-Audit 16.10.2026, 55) | Bitte versuchen Sie es erneut |
 | **ankreuzen**, **einschalten**, **markiert** | ankreuzen: ein Kästchen; einschalten: ein Schalter; markiert: nur Teilnahmen der Qualitätssicherung und Markierungen in Bildern (UI/UX-Audit 16.10.2026, 55) | anhaken, angehakt |
+| **Passkey** | dritter Anmeldeweg neben ORCID und E-Mail-Adresse mit Passwort, immer zusätzlich zu einem der beiden: anmelden mit Fingerabdruck, Gesichtserkennung, Geräte-PIN oder Sicherheitsschlüssel (app/passkeys.py); Mehrzahl „Passkeys“; ein Passkey wird **hinzugefügt** und **entfernt**, er ist **synchronisiert** oder liegt **nur auf diesem Gerät**; die Oberfläche nennt keine Hersteller, Betriebssystem-Funktionen oder Passwortmanager | Zugangsschlüssel (für einen Passkey), WebAuthn (in der Oberfläche), Passkey löschen (er wird entfernt) |
 | **Kontonummer** | die laufende Nummer der ersten zwölf Konten auf der Seite „Konto“ (UI/UX-Audit 16.10.2026, 22) | Karteikartennummer |
 | **Testdurchlauf** | ein Durchgang in der Vorschau (oder über einen Pretest-Link); gespeichert mit `source = test` | Testlauf, Testläufe, Testdaten, Testphase |
 | **Durchgang** | ein Abschnitt der Datenerhebung: in einer Live-Abstimmung jede Runde mit dem Publikum, in einem Fragebogen ab „Neuer Durchgang“ (Reiter „Datenerhebung“); Menschenmenge, Streubild und Vergleiche zählen nur den aktuellen, die Daten bleiben alle, der Export nennt ihn in der Spalte `run`; nicht zu verwechseln mit einer Welle, die eine eigene Befragung ist | |
@@ -203,6 +204,7 @@ Die Oberfläche für Forschende und Admins gibt es auch auf Englisch (Konto › 
 | Präregistrierung | pre-registration | |
 | anmelden | sign in | log in (für anmelden) |
 | Kontonummer | account number | index card number |
+| Passkey, Passkey hinzufügen, synchronisiert, nur auf diesem Gerät | passkey, add passkey, synchronised, on this device only | passcode (für einen Passkey), synced (für synchronisiert) |
 | Testdurchlauf | test run | test data |
 | Durchgang | run | |
 | Merkmal, Stufe, Kovariate | attribute, level, covariate | feature (für ein Merkmal), characteristic (für ein Merkmal) |

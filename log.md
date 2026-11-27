@@ -7860,3 +7860,13 @@ Tests: tests/test_boards.py, tests/test_review_small_dashboards.py, tests/test_g
 
 - Rückmeldung einer Testerin: zuerst eine aufgeräumte Übersicht mit Projektnamen und Inhaltsverzeichnis. Die Excel-Datei beginnt jetzt mit dem Blatt `Übersicht` (`results_tables._overview`): Titel der Befragung, Datengrundlage, darunter das Inhaltsverzeichnis mit Blatt, Inhalt und Zeilenzahl; der Name jedes Blatts springt per Klick dorthin. `README` und `tabellen` folgen wie bisher.
 - `app/xlsx.py`: Blätter als Seite zum Lesen (ohne fixierte Kopfzeile und Filter), Stile je Zeile (Überschrift), Sprünge zu anderen Blättern, verbundene Zellen, Zeilenhöhen. Handbuch (Export) angepasst.
+
+## 2026-11-27: Anmeldung mit Passkey
+
+- Dritter Anmeldeweg neben ORCID und E-Mail-Adresse mit Passwort (`app/passkeys.py`, Tabelle `passkey`, Migration 0131 mit `ROLLING = True`): Passkeys (WebAuthn) für jedes Konto, freiwillig, höchstens 10, immer zusätzlich zu ORCID oder Passwort. Bibliothek `fido2` 2.2.1 (BSD-2-Clause) prüft die Antworten; im Browser nur das eigene Skript `app/static/passkey.js`.
+- Anmeldeseite: eigener Kasten „Mit Passkey“; die Anmeldung beginnt erst mit dem Knopf (kein Vorschlag im Adressfeld). Die drei Wege stehen gleichrangig mit gleichem Knopf, der Hinweis „empfohlen“ bei ORCID ist entfernt (auch im Handbuch).
+- Konto › Profil und Anmeldung › Anmeldung: Liste der Passkeys (Name, angelegt am, zuletzt verwendet, synchronisiert oder nur auf diesem Gerät), „Umbenennen …“, „Entfernen“, „Passkey hinzufügen …“ mit Name und Nachweis wie beim Verbinden von ORCID (aktuelles Passwort, mit zweitem Faktor auch Code; ohne Passwort frische Anmeldung).
+- Nutzerprüfung erzwungen; die Anmeldung zählt wie Passwort mit Code (`twofactor.VIA_PASSKEY`) und als frisch, auch für Admins der Plattform. RP-ID ist der Host der Hauptadresse, die Herkunft muss genau sie sein; Einmalwert in der Sitzung, 5 Minuten, einmal gültig; keine Attestierung. Permissions-Policy: `publickey-credentials-get`/`-create` nur auf Seiten der Forschenden.
+- Kontosperre sperrt auch die Passkey-Anmeldung; neues Passwort, Einmal-Link und „Alle anderen Sitzungen beenden“ lassen Passkeys bestehen. Administration › Forschende › Konto: „Alle Passkeys entfernen“. Sicherheitsprotokoll: `passkey_added`, `passkey_removed`, `passkey_failed`, `passkey_counter`, `sign_in` mit `via=passkey`; Mail an die Person nach Hinzufügen und Entfernen; Slack bei Admin-Konten.
+- Rücksicherung (`deploy/docker/reapply_erasures.py`): ein seit dem Dump entfernter Passkey wird wieder gelöscht.
+- Datenschutzerklärung (de/en), Datenschutzkonzept, Handbuch, Glossar, README und Lizenzliste angepasst. Tests `tests/accounts/test_passkeys.py` (Software-Passkey `tests/helpers/soft_passkey.py`).
