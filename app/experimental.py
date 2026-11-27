@@ -42,6 +42,13 @@ FEATURES = [  # (key, label, text): in this order on Administration > Experiment
      "Ein Gehirn-Knopf links in der Kopfzeile öffnet AInstein: aus Projektname und grober Idee im Gespräch mit der KI "
      "einen Forschungs-Canvas füllen (Forschungsfrage, Design, Stichprobe, Hypothesen, Konstrukte, Auswertung), "
      "daraus Hypothesen und Konstrukte ableiten und als Befragung anlegen."),
+    ("ai_fields", "KI-Hilfe an Fragen: Fragetext formulieren, Antwortoptionen und Aussagen vorschlagen",
+     "Auf der Seite eines Elements im Entwurf stehen violette Knöpfe direkt am Feld: „Formulieren“ am Fragetext (drei "
+     "Varianten zur Wahl), „Vorschlagen“ an den Antwortoptionen einer Einfach- oder Mehrfachauswahl und an den Aussagen "
+     "einer Likert-Matrix. Vorschläge werden angehakt und angehängt, nichts wird ersetzt außer dem Fragetext; jede "
+     "Übernahme ist ein Schritt für „Rückgängig“. Angehängte Aussagen tragen die Marke „KI“ bis ins Codebuch. Braucht "
+     "„Generative KI nutzen“ im Konto; gesendet werden die Texte des Elements und der Zusammenhang der Befragung, "
+     "keine Antworten."),
     ("coding", "Offene Antworten kategorisieren",
      "Auf der Ergebnisseite an jeder offenen Antwort der Knopf „Kategorisieren“: Kategorien mit Definition und "
      "Ankerbeispiel anlegen (nach Mayring, 2022), die Antworten einmal je Text per Häkchen oder Tasten 1 bis 9 "
@@ -90,6 +97,13 @@ FEATURES_EN = {  # key: (label, text), FEATURES in English; features() picks the
                  "A brain button on the left of the header opens AInstein: from a project name and a rough idea, fill in a "
                  "research canvas in conversation with the AI (research question, design, sample, hypotheses, constructs, "
                  "analysis), derive hypotheses and constructs from it and create it as a survey."),
+    "ai_fields": ("AI help at questions: word the question text, suggest answer options and statements",
+                  "On the page of an element in a draft, purple buttons stand right at the field: “Suggest wording” at the "
+                  "question text (three wordings to choose from), “Suggest” at the answer options of a single or "
+                  "multiple choice and at the statements of a Likert matrix. Suggestions are ticked and appended, "
+                  "nothing is replaced except the question text; every take-over is one step for “Undo”. Appended "
+                  "statements carry the mark “AI” into the codebook. Needs “Use generative AI” in the account; the "
+                  "texts of the element and the context of the survey are sent, no answers."),
     "coding": ("Categorise open answers",
                "On the results page every open answer gets the button “Categorise”: create categories with a definition "
                "and an anchor example (after Mayring, 2022) and assign the answers once per text with ticks or the keys 1 "

@@ -62,7 +62,8 @@
   <p class="muted small"><strong>{{ de_en("Antwortskala", "Answer scale") }}</strong>: {{ de_en("Die Auswahl setzt ihre Standardbeschriftungen ein (in allen Sprachen). Eigene Beschriftungen bleiben beim Ändern der Stufenzahl erhalten: Die Enden bleiben, Stufen dazwischen werden ergänzt oder entfallen. Bei „nur Endpunkte verbalisiert“ sind nur die Enden beschriftet. Ab 8 Stufen sind die Vorschläge fein abgestuft („stimme etwas zu“); so viele Stufen lassen sich in Worten schwer unterscheiden, oft reichen die Endpunkte.", "choosing one fills in its standard labels (in all languages). Your own labels are kept when you change the number of points: the ends stay, points in between are added or dropped. With “only end points labelled” only the ends have labels. From 8 points the suggestions are finely graded (“somewhat agree”); so many points are hard to tell apart in words, and the end points are often enough.") }}</p>
 </fieldset>
 <fieldset>
-  <legend>{{ de_en("Aussagen", "Statements") }} <span class="hint">{{ de_en("Texte auf {l}; Variablenname leer = {code}_1, {code}_2, …", "texts in {l}; variable name empty = {code}_1, {code}_2, …", l=languages[lang], code=item.code) }}</span></legend>
+  {% set ai_made = item.cfg.statements|selectattr("ai")|list|length %}
+  <legend>{{ de_en("Aussagen", "Statements") }}{% if ai_made %} <span class="badge badge-ai" title="{{ de_en('Von einer KI formuliert und hier angehängt: nicht validiert. Die Marke geht ins Codebuch.', 'Worded by an AI and appended here: not validated. The mark goes into the codebook.') }}">✨ {{ de_en("{n} von der KI", "{n} by the AI", n=ai_made) }}</span>{% endif %} <span class="hint">{{ de_en("Texte auf {l}; Variablenname leer = {code}_1, {code}_2, …", "texts in {l}; variable name empty = {code}_1, {code}_2, …", l=languages[lang], code=item.code) }}</span></legend>
   {# items from the clipboard, one per line, also as copied from a PDF (app/item_paste.py; user test 2026-10-27):
      the box is read in the browser for the preview, "Übernehmen" sends it once and the page loads with the rows #}
   {% if structural %}
@@ -93,7 +94,7 @@
         </select>{% endmacro %}
     {% for s in item.cfg.statements if not s.src %}
       <tr>
-        <td><input type="hidden" name="stmt_id" value="{{ s.id }}"><input name="stmt_text" aria-label="{{ de_en('Aussage', 'Statement') }}" value="{{ stexts.get(s.id, '') }}" placeholder="{{ (item.text('statements') or {}).get(s.id, '') }}"></td>
+        <td{% if s.ai %} class="stmt-ai"{% endif %}><input type="hidden" name="stmt_id" value="{{ s.id }}"><input name="stmt_text" aria-label="{{ de_en('Aussage', 'Statement') }}" value="{{ stexts.get(s.id, '') }}" placeholder="{{ (item.text('statements') or {}).get(s.id, '') }}">{% if s.ai %}<span class="badge badge-ai" title="{{ de_en('Von einer KI formuliert: nicht validiert, bitte prüfen', 'Worded by an AI: not validated, please check') }}">{{ de_en("KI", "AI") }}</span>{% endif %}</td>
         <td><input name="stmt_code" aria-label="Variable" data-varname="part" value="{{ s.code }}" class="narrow" placeholder="{{ item.code }}_{{ loop.index }}" {% if not structural %}readonly{% endif %}></td>
         <td class="col-sub"><input name="stmt_subscale" aria-label="{{ de_en('Subskala', 'Subscale') }}" list="subs{{ item.id }}" value="{{ s.subscale or '' }}" class="narrow" maxlength="100" {% if not structural %}readonly{% endif %}></td>
         <td class="center"><input type="checkbox" name="stmt_reverse" aria-label="{{ de_en('umgepolt', 'reversed') }}" value="{{ s.id }}" {% if s.reverse %}checked{% endif %} {% if not structural %}disabled{% endif %}></td>
@@ -113,7 +114,8 @@
       {% endfor %}
     {% endif %}
     </tbody>
-  </table></div>
+  </table>{# beside "+ Aussage" (app.js puts it after the table): further statements from the AI, to tick (app/ai_fields.py) #}
+  {% if structural and "statements" in (ai_parts|default([])) %}{% from "_icons.html" import icon as ai_icon %}<button type="button" class="button button-ai button-small ai-field-open" data-ai-field="statements" aria-haspopup="dialog" title="{{ de_en('Weitere Aussagen zum Anhaken; sie werden angehängt und als „KI“ markiert', 'Further statements to tick; they are appended and marked “AI”') }}">{{ ai_icon("sparkles", 16) }} {{ de_en("Vorschlagen", "Suggest") }}</button>{% endif %}</div>
   {# one sentence per column, the rest under "Mehr dazu" (UI/UX audit 2026-10-05, V96) #}
   {% call row_list_hint() %}<strong>{{ de_en("umgepolt", "reversed") }}</strong>: {{ de_en("Wird beim Export rekodiert (Stufen + 1 − Wert).", "recoded in the export (points + 1 − value).") }} <strong>{{ de_en("Prüfung", "Check") }}</strong>: {{ de_en("Eine Zeile, die um eine bestimmte Antwort bittet (Aufmerksamkeitsprüfung).", "a row that asks for a certain answer (attention check).") }}{% endcall %}
   {{ why("likert_grid") }}

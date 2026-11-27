@@ -2001,6 +2001,29 @@ fieldset.bare { border: 0; padding: 0; margin: 0; min-width: 0; display: content
 .ai-dialog h2 { margin: 0; }
 .ai-dialog textarea { width: 100%; }
 .ai-note { background: var(--ai-soft); border-left: 3px solid var(--ai); }
+/* AI help at the fields of one question (app.js "AI help at the fields", app/ai_fields.py): the buttons at the field
+   and the popup with suggestions to tick */
+.question-field-head .ai-field-open { margin-left: auto; align-self: center; }
+.table-scroll > .ai-field-open { margin: 6px 0 8px 8px; vertical-align: top; }
+.ai-field-dialog { box-sizing: border-box; max-height: calc(100vh - 32px); overflow-y: auto; border-color: var(--ai-border); box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+.ai-field-dialog h2 { font-size: 1.05rem; color: var(--ai); overflow-wrap: anywhere; }
+.ai-field-ask { display: grid; gap: 6px; margin-top: 14px; }
+.ai-field-ask[hidden], .ai-field-more[hidden] { display: none; }
+.ai-field-ask input[type="text"] { width: 100%; box-sizing: border-box; }
+.ai-field-status { color: var(--ai); font-weight: 600; margin: 12px 0 0; }
+.ai-field-list { margin-top: 10px; }
+.ai-field-row { display: flex; gap: 9px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; overflow-wrap: anywhere; }
+.ai-field-row:last-child { border-bottom: 0; }
+.ai-field-row input { flex: none; margin: 3px 0 0; }
+.ai-field-text { min-width: 0; }
+.ai-field-hit { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--border); }
+.ai-field-hit-text { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.ai-field-hit-intro { margin: 0 0 8px; color: var(--muted); }
+.ai-field-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.ai-field-foot { margin: 10px 0 0; }
+.ai-field-foot:empty { display: none; }
+td.stmt-ai { display: flex; align-items: center; gap: 8px; }
+td.stmt-ai > input:not([type="hidden"]) { flex: 1; min-width: 0; }
 /* a failed AI function says so at its button, no banner (app/ai_fetch.py, aiFetch in app.js; Ralf 2026-10-10) */
 .ai-error { color: var(--danger); margin: 6px 0 0; }
 .ai-error a { font-weight: 600; }

@@ -385,6 +385,19 @@ def check(survey, start=False):
                                                    "{named}: AI-generated scale, not validated: check the items and examine "
                                                    "the reliability in the pretest.", named=named(item)),
                                     item_id=item.id, block_id=item.block_id))
+        else:  # statements appended from an AI suggestion to a scale of one's own (app/ai_fields.py)
+            n = sum(1 for s in (item.config or {}).get("statements") or [] if isinstance(s, dict) and s.get("ai"))
+            if n:
+                findings.append(Finding(WARNING, (
+                    de_en("{named}: {n} Aussage von einer KI formuliert, nicht validiert: prüfen und die Reliabilität "
+                          "im Pretest untersuchen.",
+                          "{named}: {n} statement worded by an AI, not validated: check it and examine the reliability "
+                          "in the pretest.", named=named(item), n=n) if n == 1 else
+                    de_en("{named}: {n} Aussagen von einer KI formuliert, nicht validiert: prüfen und die Reliabilität "
+                          "im Pretest untersuchen.",
+                          "{named}: {n} statements worded by an AI, not validated: check them and examine the "
+                          "reliability in the pretest.", named=named(item), n=n)),
+                    item_id=item.id, block_id=item.block_id))
     from flask import current_app
 
     from app import translations
