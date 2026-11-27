@@ -42,7 +42,8 @@ def test_every_template_with_an_ai_button_asks_ai_on():
             with open(path, encoding="utf-8") as f:
                 text = f.read()
             # ai_on, or a flag of its route that includes ai_on() (coding_ai_on, paper_ai_on, the blog's ai_ready)
-            if re.search(r"button-ai|data-ai-call|ai_access_line\(|ai_recipient\(", text) and not re.search(r"ai_on|ai_ready", text):
+            # or ai_parts of the element page (ai_fields.parts_shown: empty while generative AI is off)
+            if re.search(r"button-ai|data-ai-call|ai_access_line\(|ai_recipient\(", text) and not re.search(r"ai_on|ai_ready|ai_parts", text):
                 missing.append(rel)
     assert not missing, missing
 
