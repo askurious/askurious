@@ -7286,7 +7286,7 @@ document.addEventListener("change", function (e) {
   if (button) button.classList.toggle("button-secondary", !chosen);
 });
 
-// AI help at the fields of one question (experimental "ai_fields": app/ai_fields.py, routes editor.ai_field and
+// AI help at the fields of one question (app/ai_fields.py, routes editor.ai_field and
 // ai_field_apply, the buttons [data-ai-field] of templates/editor/item.html and the element types' editors).
 // "Formulieren" at the question text: what the question should capture, then three wordings as radio buttons,
 // "Einsetzen" replaces the question text. "Vorschlagen" at the answer options or statements: rows to tick (ticked at

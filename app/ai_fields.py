@@ -1,8 +1,8 @@
-"""AI help at the fields of one question (experimental, app/experimental.py, key "ai_fields"; concept "KI-Hilfe direkt
-an Fragen", 2026-11-27): a button at the question text ("Formulieren") and one at the list of answer options or of
-statements ("Vorschlagen") open a popup with suggestions to choose from. Only on a click, only in a draft, only in
-the source language of the survey; nothing changes until the researcher takes suggestions over
-(app/editor/ai_help.py: ai_field, ai_field_apply), as one step (undo).
+"""AI help at the fields of one question (concept "KI-Hilfe direkt an Fragen", 2026-11-27; experimental on its first
+day, since then open to everyone with "Generative KI nutzen"): a button at the question text ("Formulieren") and one
+at the list of answer options or of statements ("Vorschlagen") open a popup with suggestions to choose from. Only on
+a click, only in a draft, only in the source language of the survey; nothing changes until the researcher takes
+suggestions over (app/editor/ai_help.py: ai_field, ai_field_apply), as one step (undo).
 
 Three parts:
 - "question": three wordings of the question text for what the researcher says the question should capture; the
@@ -127,16 +127,16 @@ def parts_for(item):
 
 
 def parts_shown(survey, item, lang, user=None):
-    """The parts of `item` whose button the element page shows to `user` (default: the person signed in): the feature
-    is on for them, "Generative KI nutzen" too, they may edit, the survey is a draft and the page shows its source
-    language (not the translation view)."""
+    """The parts of `item` whose button the element page shows to `user` (default: the person signed in): "Generative
+    KI nutzen" is on for them, they may edit, the survey is a draft and the page shows its source language (not the
+    translation view)."""
     from flask_login import current_user
 
-    from app import ai_access, experimental
+    from app import ai_access
 
     user = current_user if user is None else user
-    if not (experimental.enabled("ai_fields", user=user) and ai_access.ai_on(user) and survey.is_editable
-            and survey.can(user, "editor") and lang == survey.default_language):
+    if not (ai_access.ai_on(user) and survey.is_editable and survey.can(user, "editor")
+            and lang == survey.default_language):
         return []
     return parts_for(item)
 

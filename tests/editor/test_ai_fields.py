@@ -1,6 +1,7 @@
-"""AI help at the fields of one question (experimental "ai_fields": app/ai_fields.py, editor.ai_field and
+"""AI help at the fields of one question (app/ai_fields.py, editor.ai_field and
 ai_field_apply): "Formulieren" at the question text, "Vorschlagen" at the answer options and the statements. Concept
-"KI-Hilfe direkt an Fragen" (2026-11-27), E1 to E9."""
+"KI-Hilfe direkt an Fragen" (2026-11-27), E1 to E9. Open to everyone with "Generative KI nutzen" (no experimental
+feature any more, Ralf 2026-11-27)."""
 import json
 
 import pytest
@@ -8,7 +9,7 @@ import pytest
 from app import ai_fields
 from app.extensions import db
 from app.models import Item, Survey
-from tests.conftest import add, experiments_on
+from tests.conftest import add
 
 E = "/surveys/1/editor"
 
@@ -51,7 +52,6 @@ def _write(app, item_id=2, question=None, options=None, statements=None, config=
 
 
 def _choice(app, client, kind="single_choice"):
-    experiments_on(client, "ai_fields")
     add(client, kind)
     _write(app, question="Mit welchem Verkehrsmittel fahren Sie meistens zur Arbeit?", options=["Auto"])
 
@@ -72,19 +72,11 @@ def _undo(client):
 
 # --- who sees the buttons, who reaches the routes ---------------------------------------------------------------------
 
-def test_without_the_feature_no_button_and_the_routes_answer_404(app, client, survey, calls):
-    add(client, "single_choice")
-    _write(app, question="Frage?", options=["Auto"])
-    html = _page(client)
-    assert "data-ai-field" not in html and "data-ai-fields" not in html
-    assert client.post(f"{E}/items/2/ai-field/options").status_code == 404
-    assert _apply(client, "options", rows=[{"text": "Fahrrad"}]).status_code == 404
-    assert not calls["sent"]
-    with app.app_context():
-        assert len(_item(app).config["options"]) == 1
+def test_the_buttons_stand_at_the_fields_without_any_experimental_switch(app, client, survey):
+    from app.models import User
 
-
-def test_with_the_feature_the_buttons_stand_at_the_fields(app, client, survey):
+    with app.app_context():  # no feature switched on: the help is a regular part of the editor
+        assert not db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X")).experiments
     _choice(app, client)
     html = _page(client)
     assert 'data-ai-field="question"' in html and 'data-ai-field="options"' in html
@@ -109,7 +101,6 @@ def test_generative_ai_switched_off_shows_and_does_nothing(app, client, survey, 
 
 
 def test_a_likert_matrix_has_the_button_at_the_statements_not_at_the_instruction(app, client, survey):
-    experiments_on(client, "ai_fields")
     add(client, "likert")
     html = _page(client)
     assert 'data-ai-field="statements"' in html and 'data-ai-field="question"' not in html
@@ -121,7 +112,6 @@ def test_consent_locked_construct_and_unshared_wording_are_closed(app, client, s
     button, 404, and nothing of them in a prompt."""
     from app import constructs
 
-    experiments_on(client, "ai_fields")
     for part in ai_fields.PARTS:  # item 1 is the consent
         assert client.post(f"{E}/items/1/ai-field/{part}", data={"idea": "x"}).status_code == 404
     assert "data-ai-field" not in _page(client, 1)
@@ -160,7 +150,6 @@ def test_someone_who_may_only_view_is_refused(app, client, survey, calls):
     other = app.test_client()
     other.get("/auth/dev-login?orcid=0000-0000-0000-002X&name=Gast")
     other.post("/terms/", data={"accept": "1"})
-    experiments_on(other, "ai_fields", orcid="0000-0000-0000-002X")
     with app.app_context():
         from app.models import SurveyMember
 
@@ -279,7 +268,6 @@ def test_informal_address_goes_into_the_instructions(app, client, survey, calls)
 # --- statements --------------------------------------------------------------------------------------------------------
 
 def _matrix(app, client, statements=("Ich fühle mich im Bus sicher.", "Die Fahrpläne sind verlässlich.")):
-    experiments_on(client, "ai_fields")
     add(client, "likert")
     _write(app, statements=list(statements))
 
@@ -417,11 +405,11 @@ def test_no_hit_for_words_that_name_no_construct(app, client, survey):
         assert ai_fields.catalog_hits(s, "Wie oft fahren Sie mit dem Bus?") == []
 
 
-# --- the feature in the lists ---------------------------------------------------------------------------------------------
+# --- no experimental feature, counted by purpose ----------------------------------------------------------------------
 
-def test_the_feature_is_listed_in_german_and_english_and_counted_by_purpose(app):
+def test_no_experimental_key_any_more_and_counted_by_purpose(app):
     from app import ai_stats, experimental
 
-    assert "ai_fields" in experimental.KEYS and "ai_fields" in experimental.FEATURES_EN
+    assert "ai_fields" not in experimental.KEYS and "ai_fields" not in experimental.FEATURES_EN
     for purpose in ("field_question", "field_options", "field_statements"):
         assert purpose in ai_stats.PURPOSES and purpose in ai_stats.PURPOSES_EN

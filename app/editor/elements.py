@@ -520,7 +520,7 @@ def _item_page_html(survey, item, lang, structural, meta_editable):
         "editor/item.html", survey=survey, item=item, kind=item.kind, lang=lang,
         loop_vars=loop_vars, pipe_sources=pipe_sources, rich_vars=_rich_vars(survey, loop_vars, pipe_sources),
         text_reviewable=__import__("app.text_review", fromlist=["reviewable"]).reviewable(item),
-        # the buttons "Formulieren" and "Vorschlagen" at the fields (experimental "ai_fields", app/ai_fields.py)
+        # the buttons "Formulieren" and "Vorschlagen" at the fields (app/ai_fields.py)
         ai_parts=__import__("app.ai_fields", fromlist=["parts_shown"]).parts_shown(survey, item, lang),
         languages=LANGUAGE_NAMES,
         # only for who may use it: copying needs "Bearbeiten" in this survey too
