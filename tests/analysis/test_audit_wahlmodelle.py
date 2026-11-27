@@ -452,7 +452,7 @@ def test_new_sources_read_as_apa_and_cited_short_in_the_text(app, client, survey
     for source, short in expected.items():
         assert apa.ref(source)["short"] == short
     _hb(app, client)
-    html = client.get("/surveys/1/results?sim=2").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?sim=2").data.decode()
     assert 'class="flash flash-warning sim-notes"' in html and "Hinweise des Modells" in html  # W-4; 40 persons: "Nur 40"
     assert "(Vehtari et al., 2021; Geyer, 1992)" not in html and "Spektraldichten; Geweke" not in html
     assert '>Vehtari et al., 2021</a>' in html and '>Geweke, 1992</a>' in html          # convergence: cite()

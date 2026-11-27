@@ -151,7 +151,7 @@ def test_participation_export_results_and_simulator(app, client, survey):
         assert entry["aca"]["persons"] == 20 and len(m["charts"]) == 4 and m["attributes"][0]["prior_importance"] > 0
         view = simulator.view(entry["item"], entry["aca"], ImmutableMultiDict({"sim": "2"}), "de")
         assert view["basis"] == "persons" and view["persons"] == 20 and len(view["rows"]) == 2
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "laut Selbstauskunft" in html and "Johnson, R. M. (1987)" in html and "Marktsimulator" in html
     methods = client.get("/surveys/1/methods?source=dummy").data.decode()
     assert "war ein Adaptive Conjoint (ACA" in methods

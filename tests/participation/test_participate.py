@@ -168,7 +168,8 @@ def test_sources_test_dummy_real(app, client, survey):
         assert len(dummies) == 5 and all(r.status == "completed" for r in dummies)
         assert all(set(r.answers["2"]) == {"s1", "s2"} for r in dummies)
     # the data pool counts every source, although test runs and dummies are stored with is_preview
-    pool = client.get("/surveys/1/results").data.decode().split('id="pool"')[1].split("</form>")[0]   # "Grundlage der Auswertung"
+    # on the results page the saved pool stands in its dialog "Datenpool" (restructuring of the results part, stage 3)
+    pool = client.get("/surveys/1/results").data.decode().split('id="pool-dialog"')[1].split("</form>")[0]
     assert "echte Teilnahmen (1)" in pool and "Testdurchläufe (1)" in pool and "Dummy-Daten (5)" in pool
     real_only = list(csv.DictReader(io.StringIO(client.get("/surveys/1/export/data.csv").data.decode("utf-8-sig"))))
     assert [r["source"] for r in real_only] == ["real"]

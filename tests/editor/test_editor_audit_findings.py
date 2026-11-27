@@ -346,7 +346,8 @@ def test_loop_scale_stays_out_of_the_model(app, client, survey):
         from app import plan_model
 
         assert all(v["code"] != "loopsk" for v in plan_model.variables(s))
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    # the model has a page of its own below "Ergebnisse" (restructuring of the results part, stage 2)
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     part = page[page.index('id="sem"'):]
     assert "Zu wenige vollständige Teilnahmen: 0 von mindestens" not in part
     assert "N = 300 vollständige Teilnahmen" in part

@@ -285,7 +285,7 @@ def test_cbc_hit_rate_from_hb_and_logit(app, client, survey):
         finally:
             monkey.undo()
         assert seen and all(c == pytest.approx(center) for c in seen) and center != 0
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Vorhersage der Holdout-Aufgaben" in html and ">Trefferquote" in html
     assert "Orme, B. K. (2009). <i>Fine-tuning CBC and adaptive CBC questionnaires</i>" in html
 
@@ -293,7 +293,7 @@ def test_cbc_hit_rate_from_hb_and_logit(app, client, survey):
 def test_no_holdout_figures_without_hb(app, client, survey):
     cbc_setup(client, none=True)
     client.post(E + "/items/2", data=cbc_holdout_form([[(0, 0, 0), (1, 2, 1)]]))
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Vorhersage der Holdout-Aufgaben" not in html and "Orme, B. K. (2009)" not in html
 
 
@@ -378,5 +378,5 @@ def test_maxdiff_holdout_pages_export_dummy_and_hit_rate(app, client, survey):
         assert n >= 40 and first["chance"] == 0.25 and first["hb"]["hit"] > 0.45
         # the logit predicts the best statement for everyone: its hit rate is the share choosing it
         assert first["pooled"]["n"] == n and first["pooled"]["hit"] == pytest.approx(first["hb"]["obs"][0])
-    html = client.get("/surveys/1/results?source=dummy&drop=1").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy&drop=1").data.decode()
     assert "Vorhersage der Holdout-Sets" in html
