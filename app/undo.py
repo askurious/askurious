@@ -16,6 +16,9 @@ before and after and stores the parts that differ as one EditStep, each with its
     plan:layout  where the variables stand in the drawing of the model (study plan; moved on the results page)
     linked:<key> a linked element the questions use (app/linked.py): its Fassung, template and name. A step that
                  made one ("verknüpfbar gemacht") takes it away again when it is taken back, and redoing makes it anew.
+    access:<id>  the rights of an interviewer link (app/interviewer.py); tcassign:<id> who codes in an analysis
+    blocked:<id> whether an interviewer link is blocked, apart from its rights: taking a change of rights back never
+                 opens a link that was blocked since. Putting "blocked" back signs its devices out again.
 
 Undo puts the states before back, redo the states after. Both first check that every part is still as the
 step left it: if someone else (or a page that keeps no steps yet, e.g. translation, images, quotas) changed
@@ -56,7 +59,7 @@ from app.timeutil import fmt, to_local
 
 KEEP = 20
 # what a running or closed survey may still change, and so take back: the structure is fixed from the start on
-FIELD_PARTS = ("settings:", "board:", "quota:", "item:", "plan:layout", "access:", "tcassign:")
+FIELD_PARTS = ("settings:", "board:", "quota:", "item:", "plan:layout", "access:", "blocked:", "tcassign:")
 # the rights of an interviewer link (app/interviewer.py); a step from before may_interview was kept leaves it as it is
 ACCESS_FIELDS = ("may_interview", "may_record", "may_transcribe", "may_code", "show_learning", "may_see")
 DAYS = 7
@@ -175,12 +178,14 @@ def _state(survey):
 
 
 def _interviewer_parts(survey):
-    """access:<id> the rights of an interviewer link; tcassign:<analysis id> the links assigned to code there."""
+    """access:<id> the rights of an interviewer link; blocked:<id> whether it is blocked (a part of its own, so that
+    a step of the rights never touches it); tcassign:<analysis id> the links assigned to code there."""
     from app.models import CodingMember, CodingProject, InterviewerAccess
 
     parts = {}
     for a in db.session.scalars(db.select(InterviewerAccess).filter_by(survey_id=survey.id)):
         parts[f"access:{a.id}"] = {f: getattr(a, f) for f in ACCESS_FIELDS}
+        parts[f"blocked:{a.id}"] = {"blocked": bool(a.blocked)}
     projects = db.session.scalars(db.select(CodingProject).filter_by(survey_id=survey.id)).all()
     if projects:
         rows = db.session.execute(db.select(CodingMember.project_id, CodingMember.access_id).where(
@@ -192,10 +197,17 @@ def _interviewer_parts(survey):
 
 
 def _apply_interviewers(survey, target):
-    """Put the rights of interviewer links and the assignments to analyses back (parts access: and tcassign:)."""
+    """Put the rights of interviewer links, whether they are blocked and the assignments to analyses back (parts
+    access:, blocked: and tcassign:). A link that is blocked again loses its sessions, as when it is blocked on the
+    page (interviewer.block); one that is open again keeps its key, and its devices open the link anew."""
+    from app import interviewer
     from app.models import CodingMember, CodingProject, InterviewerAccess
 
     for key, state in target.items():
+        if key.startswith("blocked:") and state is not None:
+            access = db.session.get(InterviewerAccess, int(key.partition(":")[2]))
+            if access is not None and access.survey_id == survey.id and bool(access.blocked) != bool(state["blocked"]):
+                (interviewer.block if state["blocked"] else interviewer.unblock)(access)
         if key.startswith("access:") and state is not None:
             access = db.session.get(InterviewerAccess, int(key.partition(":")[2]))
             if access is not None and access.survey_id == survey.id:
@@ -455,6 +467,13 @@ def _what(survey, key, parts):
                        "end_texts": ("die Texte der Endseiten", "the end page texts"),
                        "quality": ("die Qualitätssicherung", "the quality assurance"),
                        "weighting": ("die Gewichtung", "the weighting")}.get(ident, ("die Einstellungen", "the settings")))
+    if kind in ("access", "blocked"):
+        from app.models import InterviewerAccess
+
+        access = db.session.get(InterviewerAccess, int(ident))
+        return de_en("der Interviewlink von „{name}“", "the interviewer link of “{name}”", name=access.name if access is not None else "")
+    if kind == "tcassign":
+        return de_en("die Zuweisung zum Kodieren", "the assignment for coding")
     if kind == "linked":
         return de_en("das verknüpfte Element „{name}“", "the linked element “{name}”", name=(known or {}).get("name", ""))
     if kind == "board":

@@ -225,7 +225,23 @@
   {% endcall %}
   {% endfor %}
   {% endif %}
-  <div><button type="button" class="button button-secondary" data-dialog-open="iv-add" aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Interviewende hinzufügen", "Add interviewers") }}</button></div>
+  <div class="form-actions"><button type="button" class="button button-secondary" data-dialog-open="iv-add" aria-haspopup="dialog">{{ icon("plus", 16) }} {{ de_en("Interviewende hinzufügen", "Add interviewers") }}</button>
+    {% if accesses|length > 1 %}<button type="button" class="button button-secondary" data-dialog-open="iv-block-all" aria-haspopup="dialog">{{ de_en("Alle sperren oder entsperren", "Block or unblock all") }}</button>{% endif %}</div>
+  {# every link of the guide blocked or unblocked at once (app/interviewer.py, change_all; Ralf 2026-11-27): one step
+     for "Rückgängig", nothing is deleted, so no red button #}
+  {% if accesses|length > 1 %}
+  {% set n_blocked = accesses|selectattr("blocked")|list|length %}{% set n_open = accesses|length - n_blocked %}
+  {% call dialog("iv-block-all", de_en("Alle Interviewlinks sperren oder entsperren", "Block or unblock all interviewer links")) %}
+  <div class="stack">
+    <p>{{ de_en("Von {n} Interviewlinks dieses Leitfadens sind {open} nicht gesperrt und {blocked} gesperrt.", "Of the {n} interviewer links of this guide, {open} are not blocked and {blocked} are blocked.", n=accesses|length, open=n_open, blocked=n_blocked) }}</p>
+    <p class="muted small">{{ de_en("Sperren meldet alle Geräte ab; die Links, ihre Rechte und die Interviews bleiben. Nach dem Entsperren öffnen die Geräte den bisherigen Link neu; ein abgelaufener Link bleibt abgelaufen. „Rückgängig“ stellt den Stand von vorher wieder her.", "Blocking signs out all devices; the links, their rights and the interviews stay. After unblocking, the devices open the previous link again; an expired link stays expired. “Undo” restores the state from before.") }}</p>
+    <div class="form-actions">
+      <form method="post" action="{{ url_for('interviewer.change_all', code=survey.code, action='block') }}">{{ csrf() }}<button class="button button-secondary" {% if not n_open %}disabled{% endif %}>{{ de_en("Alle sperren ({n})", "Block all ({n})", n=n_open) }}</button></form>
+      <form method="post" action="{{ url_for('interviewer.change_all', code=survey.code, action='unblock') }}">{{ csrf() }}<button class="button button-secondary" {% if not n_blocked %}disabled{% endif %}>{{ de_en("Alle entsperren ({n})", "Unblock all ({n})", n=n_blocked) }}</button></form>
+    </div>
+  </div>
+  {% endcall %}
+  {% endif %}
   {# one or several at once, as the links for persons on the survey side (surveys/_links.html), Ralf 2026-10-15; in a
      dialog like "Rechte ändern" (Ralf 2026-10-28), same route and fields as before #}
   {% call dialog("iv-add", de_en("Interviewende hinzufügen", "Add interviewers")) %}
