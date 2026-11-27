@@ -1838,13 +1838,15 @@ def measures():
             (de_en("Nachweis der Einwilligung (Art. 7 Abs. 1 DSGVO): Je Fragebogen-Fassung ist festgehalten, welche "
                    "Bestätigungen gefragt wurden, und jeder Wortlaut der Einwilligung, dem jemand zustimmen konnte, mit "
                    "dem Zeitpunkt, ab dem er galt (beim Start und bei jeder Korrektur im Feld). Der Export nennt je "
-                   "Teilnahme die Fassung und bei mehreren Wortlauten dessen Nummer; die Wortlaute stehen im "
+                   "Teilnahme die Fassung und bei mehreren Wortlauten die Nummer dessen, den die Seite beim Zustimmen "
+                   "zeigte (wurde er seit dem Anzeigen korrigiert, kommt die Seite erneut); die Wortlaute stehen im "
                    "Fragebogen-Dokument der Exporte. Für Befragungen, die vor dem 27.11.2026 begonnen haben, ist der "
                    "Wortlaut ab diesem Tag festgehalten",
                    "Proof of consent (Art. 7 (1) GDPR): for each questionnaire version it is recorded which "
                    "confirmations were asked, and every wording of the consent someone could agree to, with the time "
                    "from which it applied (at the start and with every correction in the field). The export names the "
-                   "version of each participation and, with several wordings, its number; the wordings are in the "
+                   "version of each participation and, with several wordings, the number of the one the page showed "
+                   "at the agreement (if it was corrected since it was shown, the page comes again); the wordings are in the "
                    "questionnaire document of the exports. For surveys that started before 27 November 2026 the "
                    "wording is recorded from that day on"), "app/items/consent.py, app/lifecycle.py, app/export.py"),
             (de_en("Pflichtangaben nach Art. 13 DSGVO: Der Standardtext der Einwilligung nennt Empfänger (Server der "

@@ -329,7 +329,7 @@ def test_every_wording_someone_could_agree_to_is_kept(app, client, survey):
         kept = item.kind.wordings(item)
         assert [w["n"] for w in kept] == [1, 2] and "Text Korrigiert" in kept[0]["texts"]["de"]["body"]
         assert "Text Neue Angabe" in kept[1]["texts"]["de"]["body"]
-        assert ("consent_text", "Wortlaut der Einwilligung beim Beginn der Teilnahme (Nummer, die Wortlaute stehen im "
+        assert ("consent_text", "Wortlaut der Einwilligung, dem zugestimmt wurde (Nummer, die Wortlaute stehen im "
                 "Fragebogen)") in item.kind.export_columns(item)
         rows = {r.id: {**item.kind.export_values(item, "1"), **item.kind.export_response_values(item, "1", r)}
                 for r in db.session.scalars(db.select(Response).filter_by(survey_id=1, is_preview=False))}
@@ -339,7 +339,7 @@ def test_every_wording_someone_could_agree_to_is_kept(app, client, survey):
         assert "Wording 1 (questionnaire version 1, from " in md and "Wording 2 (questionnaire version 1, from " in md
         assert "Korrigiert" in md and "Neue Angabe" in md and "column `consent_text`" in md
         assert export.label_en("consent_text", item.kind.export_columns(item)[-1][1]).startswith(
-            "Wording of the consent when the participation began")
+            "Wording of the consent that was agreed to")
 
 
 def test_a_survey_started_before_wordings_were_kept_gets_the_one_found(app, client, survey):
@@ -379,3 +379,43 @@ def test_a_survey_started_before_wordings_were_kept_gets_the_one_found(app, clie
         db.session.commit()
         kept = db.session.get(Item, 1).kind.wordings(db.session.get(Item, 1))
         assert [w["n"] for w in kept] == [1, 2] and "Löschcode" in kept[1]["texts"]["de"]["body"]  # nobody began: replaced
+
+
+def test_the_agreement_names_the_wording_the_page_showed(app, client, survey):
+    """Ralf, 2026-11-27 ("ja"): the number of the wording is kept with the agreement itself. A page that was open
+    while the text was corrected comes again with the text as it is now; only then does the agreement count."""
+    import re
+
+    from tests.conftest import CONSENT_OK
+
+    from app.models import Response
+
+    _field(app, client)
+    p = app.test_client()
+    token = re.search(r'name="i1_w" value="([^"]+)"', p.get("/s/1").data.decode()).group(1)
+    assert token.startswith("1.")
+    E = "/surveys/1/editor/items/1"
+    form = {"code": "consent", "question": "Einwilligung", "duration": "7", "agree": "Fortsetzen", "disagree": "Nein"}
+    client.post(E, data={**form, "body": "Text, berichtigt"})  # nobody has agreed yet: the wording is replaced
+    p.post("/s/1", data={**CONSENT_OK, "i1_w": token})         # agrees to the page from before the correction
+    with app.app_context():
+        r = db.session.scalar(db.select(Response).filter_by(survey_id=1, is_preview=False))
+        assert r is None or ("1" not in (r.answers or {}) and "consent_text" not in (r.layout or {}))  # nothing is kept
+    page = p.get("/s/1").data.decode()
+    again = re.search(r'name="i1_w" value="([^"]+)"', page).group(1)
+    assert "Text, berichtigt" in page and again.startswith("1.") and again != token
+    p.post("/s/1", data={**CONSENT_OK, "i1_w": again})
+    client.post(E, data={**form, "body": "Text, noch einmal berichtigt"})  # after an agreement: a second wording
+    q = app.test_client()                                                    # declining never needs the current text
+    q.get("/s/1")
+    q.post("/s/1", data={"i1": "0", "i1_w": token})
+    with app.app_context():
+        item = db.session.get(Item, 1)
+        kept = item.kind.wordings(item)
+        assert [w["n"] for w in kept] == [1, 2] and kept[0]["texts"]["de"]["body"].startswith("Text, berichtigt")
+        r = db.session.scalar(db.select(Response).filter_by(survey_id=1, is_preview=False, status=Response.ACTIVE))
+        assert r.answers["1"] == "1" and r.layout["consent_text"] == 1
+        r.started_at = None  # the agreement itself names the wording, whatever the beginning says
+        assert item.kind.export_response_values(item, "1", r)["consent_text"] == 1
+        db.session.rollback()
+        assert db.session.get(Survey, 1).declined_count == 1

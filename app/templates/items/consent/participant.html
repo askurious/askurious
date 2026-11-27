@@ -26,6 +26,8 @@
   {# the message directly under the ticks it is about, not below the buttons #}
   {% if failed %}<p class="p-error" role="alert" id="msg{{ item.id }}" data-item-message>{{ failed }}</p>{% endif %}
   <p class="p-consent-note"{{ text_attrs(item, "agree_note") }}>{{ kind.ui_text(item, lang, "agree_note") }}</p>
+  {# which wording this page shows: the agreement names it (items/consent.py, wording_token) #}
+  {% set wording = kind.wording_token(item) %}{% if wording %}<input type="hidden" name="i{{ item.id }}_w" value="{{ wording }}">{% endif %}
   <div class="p-consent-actions">
     {# "Continue" comes first in the source so the Enter key never declines; CSS puts "decline" on the left #}
     <button class="p-button p-consent-agree" type="submit" name="i{{ item.id }}" value="1"{{ text_attrs(item, "agree") }}>{{ kind.ui_text(item, lang, "agree") }}</button>

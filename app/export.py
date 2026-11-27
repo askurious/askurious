@@ -1996,8 +1996,8 @@ LABEL_PATTERNS_EN = [
     (re.compile(r"^Vignetten in gezeigter Reihenfolge$"), "Vignettes in the order shown"),
     (re.compile(r"^Loop-Zeilen in gezeigter Reihenfolge$"), "Loop rows in the order shown"),
     (re.compile(r"^Gezeigte Reihenfolge \(Variablennamen\)"), "Order shown (variable names)"),
-    (re.compile(r"^Wortlaut der Einwilligung beim Beginn der Teilnahme \(Nummer, die Wortlaute stehen im Fragebogen\)"),
-     "Wording of the consent when the participation began (number, the wordings are in the questionnaire)"),
+    (re.compile(r"^Wortlaut der Einwilligung, dem zugestimmt wurde \(Nummer, die Wortlaute stehen im Fragebogen\)"),
+     "Wording of the consent that was agreed to (number, the wordings are in the questionnaire)"),
     (re.compile(r"^Startreihenfolge unverändert bestätigt \(1 = ja, 0 = geändert\)"), "Starting order confirmed unchanged (1 = yes, 0 = changed)"),
     (re.compile(r"^Startverteilung unverändert bestätigt \(1 = ja, 0 = geändert\)"), "Starting split confirmed unchanged (1 = yes, 0 = changed)"),
     (re.compile(r"^Reihenfolge der Elemente auf Seite (\d+)"), r"Order of the elements on page \1"),
@@ -2557,8 +2557,8 @@ def _consent_history(item, kind, lang):
         out += [f"  - Version {v}: " + (", ".join(f"`{item.code}_{k}`" for k in keys) or "none")
                 for v, keys in sorted(versions.items(), key=lambda row: int(row[0]))]
     if len(kept) > 1:
-        out += ["", f"  Wordings of the consent (column `{item.code}_text`: the number of the wording in force when "
-                "the participation began):"]
+        out += ["", f"  Wordings of the consent (column `{item.code}_text`: the number of the wording the page showed when "
+                "the person agreed; for agreements before 2026-11-27 the one in force when the participation began):"]
         for w in kept:
             since = (f"from {w['from'].replace('T', ' ')} UTC" if w.get("from") else
                      f"as found on {(w.get('noted') or '')[:10]}, when wordings began to be kept; earlier corrections are not known")

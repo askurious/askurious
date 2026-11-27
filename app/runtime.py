@@ -1067,8 +1067,12 @@ def _step(survey, response, form, lang, method, validate=True, params=None, quot
     from app import paradata
     sent_qv = str(form.get("qv") or "") if method == "POST" else ""
     shown_qv = int(sent_qv) if sent_qv.isdigit() else (survey.qversion or 1)  # a page without the field: as before
+    consent_item = next((i for i in page_items if i.type == "consent"), None) if method == "POST" and not paper else None
     if method == "POST" and (form.get("pos") not in (None, page_token(response, position))
-                             or (not hold and str(shown_qv) != str(survey.qversion or 1))):
+                             or (not hold and str(shown_qv) != str(survey.qversion or 1))
+                             # agreeing to a wording of the consent that was corrected since the page was shown:
+                             # the page once more, with the text as it is now (items/consent.py, stale_wording)
+                             or (consent_item is not None and consent_item.kind.stale_wording(consent_item, form))):
         # a page sent twice (double click, a pending automatic continue) or an older page from the browser
         # history or another tab, or a page of an earlier version of the questionnaire (field "qv"): its answers
         # belong to another page, so show the current one instead. While the survey waits (hold) its version is
@@ -1179,6 +1183,11 @@ def _step(survey, response, form, lang, method, validate=True, params=None, quot
                 if item.type == "consent" and form.get(f"i{item.id}") == "1":
                     result.answers[item.id] = "1"
         store_answers(response, result.answers, row)
+        if consent_item is not None and result.answers.get(consent_item.id) == "1":
+            # which wording the person agreed to, with the agreement itself (Ralf, 2026-11-27)
+            agreed = consent_item.kind.agreed_wording(consent_item, form)
+            if agreed is not None:
+                response.layout = {**response.layout, "consent_text": agreed}
         if result.errors and not paper:
             # an answer changed into something invalid: not kept, nor the one from before (it is not what the person
             # last gave), as with "Back", the language switch and the timer (audit 2026-10-12, T-3). Not the consent
