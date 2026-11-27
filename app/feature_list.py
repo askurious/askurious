@@ -381,7 +381,7 @@ def groups():
                    "Page through faster, even on a weak connection: a dead spot stops nobody, every page is saved in the background"), None),
         ]),
         ("team", de_en("Zusammenarbeit und Konten", "Teamwork and accounts"), [
-            (de_en("Anmelden mit ORCID oder mit E-Mail und Passwort", "Sign in with ORCID or email and password"),
+            (de_en("Anmelden mit ORCID, mit E-Mail und Passwort oder mit Passkey", "Sign in with ORCID, with email and password or with a passkey"),
              None),
             (de_en("Rollen je Befragung: Admin, Bearbeiten, Ansehen", "Roles per survey: Admin, Edit, View"), None),
             (de_en("Gruppen teilen Befragungen, Designs und Konstrukte; Beitrittslinks mit Gültigkeit",

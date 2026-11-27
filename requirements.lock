@@ -27,6 +27,8 @@ cryptography==50.0.2 \
     --hash=sha256:630ebfea3bf689d075f82316324ff7433dc447fe6bc1bfc76524b74b4a9567d2
 distro==1.9.0 \
     --hash=sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2
+fido2==2.2.1 \
+    --hash=sha256:ed397da981b9ab133da6ead7309e41f924b566b749956129efe286fae097749f
 flask==3.1.3 \
     --hash=sha256:f4bcbefc124291925f1a26446da31a5178f9483862233b23c0c96a20701f670c
 flask-login==0.6.3 \

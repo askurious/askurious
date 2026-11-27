@@ -965,11 +965,12 @@ def _told_flash(told, not_told):
 
 
 def _account_page(user, link=None):
-    from app import accounts, passwords
+    from app import accounts, passkeys, passwords
 
     from app import experimental
 
     return render_template("admin/account.html", user=user, login=passwords.login_row(user), link=link,
+                           passkey_count=passkeys.count(user),
                            link_open=passwords.open_link(user), has_password=passwords.has_password(user),
                            site_admin=accounts.managed_by_config(user),
                            hours=passwords.LINK_HOURS, hard_locked=passwords.hard_locked(passwords.login_row(user)),
@@ -1306,6 +1307,23 @@ def account(user_id):
             security_log.event("sign_in_released", account=user.id, by=current_user.id)  # audit 2026-10-13, AU-7
             flash(de_en("Anmeldung freigegeben. Die Zählung der Fehlversuche beginnt neu.",
                         "Sign-in released. The count of failed attempts starts again."), "success")
+        elif action == "passkeys_remove":
+            # every passkey of the person goes (a lost device, a key store taken over); ORCID or the password stay
+            # as the way in. As fresh a sign-in as for a one-time link
+            again = accounts.need_fresh(url_for("admin.account", user_id=user.id) + "#passkeys")
+            if again:
+                return again
+            from app import passkeys
+
+            gone = passkeys.remove_all(user, by=current_user)
+            db.session.commit()
+            if gone:
+                passkeys.mail_changed(user, added=False)
+            who = user.display_name
+            flash(de_en("{n} Passkey von {who} entfernt.", "{n} passkey of {who} removed.", n=gone, who=who) if gone == 1
+                  else de_en("{n} Passkeys von {who} entfernt.", "{n} passkeys of {who} removed.", n=gone, who=who),
+                  "success")
+            return redirect(url_for("admin.account", user_id=user.id, _anchor="passkeys"))
         elif action == "request_done":
             # the request "Passwort vergessen?" needs no link (the person remembered it, or it was not theirs)
             row.reset_requested_at = None

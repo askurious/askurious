@@ -15,7 +15,8 @@
   <p class="muted flush">{{ de_en("Anmeldung:", "Sign-in:") }}
     {% if user.has_orcid %}ORCID {{ orcid_link(user.orcid, full=True, unauth=False) }}{% endif %}
     {% if login and login.email %}{% if user.has_orcid %}{{ de_en("und", "and") }} {% endif %}{{ de_en("E-Mail-Adresse und Passwort", "email address and password") }}{% if not login.password_hash %} {{ de_en("(Passwort noch nicht gesetzt)", "(password not set yet)") }}{% endif %}{% endif %}
-    {% if not user.has_orcid and not (login and login.email) %}{{ de_en("noch keine", "none yet") }}{% endif %}{% if org_short(user) %} · {{ org_short(user) }}{% endif %}</p>
+    {% if not user.has_orcid and not (login and login.email) %}{{ de_en("noch keine", "none yet") }}{% endif %}{% if passkey_count %}
+    · {{ de_en_n(passkey_count, ("{n} Passkey", "{n} Passkeys"), ("{n} passkey", "{n} passkeys")) }}{% endif %}{% if org_short(user) %} · {{ org_short(user) }}{% endif %}</p>
 </section>
 
 {% if link %}
@@ -226,6 +227,19 @@
 <section class="panel">
   <h2>{{ de_en("Anmeldung", "Sign-in") }}</h2>
   <p class="muted">{{ de_en("Dieses Konto meldet sich mit ORCID an. Ein Passwort kann die Person selbst auf ihrer Seite „Konto“ hinterlegen.", "This account signs in with ORCID. The person can add a password themselves on their page “Account”.") }}</p>
+</section>
+{% endif %}
+
+{% if passkey_count %}
+<section class="panel" id="passkeys">
+  {# all passkeys of the person at once (app/passkeys.py, remove_all): for a lost device; the other ways in stay #}
+  <h2>{{ de_en("Passkeys", "Passkeys") }}</h2>
+  <p>{{ de_en_n(passkey_count, ("{who} hat {n} Passkey.", "{who} hat {n} Passkeys."), ("{who} has {n} passkey.", "{who} has {n} passkeys."), who=user.display_name) }}</p>
+  <form method="post" action="{{ url_for('admin.account', user_id=user.id) }}" class="button-row"
+        data-confirm="{{ de_en('Alle Passkeys von {who} entfernen?', 'Remove all passkeys of {who}?', who=user.display_name) }}" data-confirm-note="{{ de_en('Die Person meldet sich danach mit ORCID oder mit E-Mail-Adresse und Passwort an und kann neue Passkeys hinzufügen.', 'The person then signs in with ORCID or with email address and password and can add new passkeys.') }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}" data-confirm-danger>
+    {{ csrf() }}<input type="hidden" name="action" value="passkeys_remove">
+    <button class="button button-danger">{{ de_en("Alle Passkeys entfernen", "Remove all passkeys") }}</button>
+  </form>
 </section>
 {% endif %}
 

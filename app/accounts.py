@@ -27,7 +27,7 @@ from app.models import (LOCAL_PREFIX, AccountSupervisor, AiUsage, AuthToken, Con
                         ConstructCitation, ConstructShare, ConstructSubmission, DesignShare, EditMark, EditStep, ExperimentGrant, Feedback, Item, PreviewComment, Response, SignInGrant, SignInOrcid, SiteSetting, Survey,
                         SurveyGroup, SurveyHide, SurveyLabel, SurveyMember, SurveyPin, TrashedItem, User,
                         UserLogin, WorkGroup, WorkGroupMember, ZenodoConnection, CoscineConnection, AiAccess, AiCall, utcnow)
-from app.models import LoginSession
+from app.models import LoginSession, Passkey
 
 bp = Blueprint("accounts", __name__, url_prefix="/account")
 
@@ -607,7 +607,7 @@ def delete(user, by, choices=None, admin=None, heirs=None):
 
     if login is not None and login.email:
         db.session.execute(db.delete(MemberInvite).where(MemberInvite.email == login.email))
-    for model in (ZenodoConnection, CoscineConnection, AiAccess, AiUsage, SurveyPin, SurveyHide, EditMark, EditStep, UserLogin, AuthToken, SignInGrant, LoginSession,
+    for model in (ZenodoConnection, CoscineConnection, AiAccess, AiUsage, SurveyPin, SurveyHide, EditMark, EditStep, UserLogin, AuthToken, SignInGrant, LoginSession, Passkey,
                   ConstructPick, ResearchProject, ExperimentGrant, DataToken,  # DataToken: read tokens (app/data_access.py)
                   AgentToken,  # tokens of the AI agent interface (app/agent_access.py)
                   OrgDeletion):  # a mark of an organisation admin (app/org_delete.py)
@@ -773,7 +773,7 @@ def index():
     """The page "Profil und Anmeldung", the first of the account pages (Konto-Seiten B2, Ralf 2026-10-20): details,
     access, sign-in and security, the experimental features, deleting the account. The connections and the display
     have pages of their own (connections, appearance), all four under "Konto" in the menu at the name."""
-    from app import account_types, passwords, sessions, twofactor
+    from app import account_types, passkeys, passwords, sessions, twofactor
     from app import experimental as experimental_mod
 
     my_period = account_types.summary(passwords.login_row(current_user))
@@ -785,6 +785,8 @@ def index():
                            has_password=passwords.has_password(current_user), fresh=_fresh(),
                            config_admin=managed_by_config(current_user),
                            totp=twofactor.enabled(current_user),
+                           passkeys=passkeys.of(current_user), passkeys_max=passkeys.MAX_PER_ACCOUNT,
+                           passkey_name_length=passkeys.NAME_LENGTH,
                            # Voluntary setup for everyone; ORCID admins remain exempt from an extra code.
                            totp_on=True, backup_left=twofactor.backup_left(current_user),
                            sessions=sessions.active(current_user), this_sid=sessions.current_sid(),

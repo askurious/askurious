@@ -152,7 +152,8 @@ def test_s4_accounts_tokens_and_participations_go_again_by_the_apps_way(app, cli
     monkeypatch.setattr(coding, "forget", lambda s, rows: forgotten.append([r.id for r in rows]) or real_forget(s, rows))
     with app.app_context():
         dry = tool.apply(db.engine, saved)
-    assert dry["accounts_named"] == [other_id] and dry["tokens"] == {"data_token": 1, "auth_token": 0, "login_session": 1}
+    assert dry["accounts_named"] == [other_id] and dry["tokens"] == {"data_token": 1, "auth_token": 0, "login_session": 1,
+                                                                    "passkey": 0}
     assert dry["codings"] == [1] and not forgotten
     with app.app_context():
         report = tool.apply(db.engine, saved, do=True)

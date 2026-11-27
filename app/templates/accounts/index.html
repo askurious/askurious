@@ -5,8 +5,9 @@
 {% from "_icons.html" import icon %}
 {# The page "Profil und Anmeldung", the first of the account pages (accounts.index). Needs: login (UserLogin or None),
    has_password, config_admin, fresh, minutes, min_length, my_period, my_supervisors, my_contact, supervised, totp,
-   backup_left, sessions. #}
+   backup_left, sessions, passkeys, passkeys_max, passkey_name_length. #}
 {% block title %}{{ de_en("Profil und Anmeldung", "Profile and sign-in") }} · {{ de_en("Konto", "Account") }}{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='passkey.js') }}" defer></script>{% endblock %}
 {% block content %}
 <p class="page-group">{{ de_en("Konto", "Account") }}</p>
 <h1>{{ de_en("Profil und Anmeldung", "Profile and sign-in") }}</h1>
@@ -85,6 +86,7 @@
   <ul class="plain setup-ways">
     <li>ORCID: {% if current_user.has_orcid %}<strong>{{ de_en("verbunden", "connected") }}</strong> {{ orcid_link(current_user.orcid, full=True, unauth=False) }}{% else %}{{ de_en("nicht verbunden", "not connected") }}{% endif %}</li>
     <li>{{ de_en("E-Mail-Adresse und Passwort", "Email address and password") }}: {% if has_password %}<strong>{{ login.email }}</strong>{% if not current_user.has_orcid %} <span class="hint">{{ de_en("die Adresse ändert ein Admin der Plattform", "a platform admin changes the address") }}</span>{% endif %}{% else %}{{ de_en("nicht hinterlegt", "not added") }}{% endif %}</li>
+    <li>{{ de_en("Passkeys", "Passkeys") }}: {% if passkeys %}<strong>{{ de_en("{n} hinzugefügt", "{n} added", n=passkeys|length) }}</strong>{% else %}{{ de_en("keiner hinzugefügt", "none added") }}{% endif %}</li>
   </ul>
   {% if not current_user.has_orcid %}
   <h3>{{ de_en("Mit ORCID verbinden", "Connect with ORCID") }}</h3>
@@ -196,6 +198,70 @@
     <div class="button-row"><button class="button button-secondary">{{ de_en("Hinterlegen", "Add") }}</button></div>
   </form>
   {% endif %}
+  {% endif %}
+  </div>
+  {# passkeys (app/passkeys.py, Ralf 2026-11-27): a third way in, always besides ORCID or the password. Adding one
+     asks for the proof connecting ORCID asks for; passkey.js talks to the browser #}
+  <div id="passkeys">
+  <h3>{{ de_en("Passkeys", "Passkeys") }} <span class="hint">{{ de_en("anmelden mit Fingerabdruck, Gesichtserkennung, Geräte-PIN oder Sicherheitsschlüssel", "sign in with fingerprint, face recognition, device PIN or a security key") }}</span></h3>
+  {% if passkeys %}
+  {% call list_table("passkeys-table") %}
+    <thead><tr><th>{{ de_en("Name", "Name") }}</th><th>{{ de_en("Angelegt am", "Added on") }}</th><th>{{ de_en("Zuletzt verwendet", "Last used") }}</th><th>{{ de_en("Speicherort", "Kept") }}</th><th><span class="visually-hidden">{{ de_en("Aktionen", "Actions") }}</span></th></tr></thead>
+    <tbody>
+    {% for p in passkeys %}
+      <tr><td>{{ p.name }}</td>
+        <td data-label="{{ de_en('Angelegt am', 'Added on') }}">{{ p.created_at|localdt(false) }}</td>
+        <td data-label="{{ de_en('Zuletzt verwendet', 'Last used') }}">{% if p.last_used_at %}{{ p.last_used_at|localdt }}{% else %}{{ de_en("noch nie", "never") }}{% endif %}</td>
+        <td data-label="{{ de_en('Speicherort', 'Kept') }}">{{ de_en("synchronisiert", "synchronised") if p.backed_up else de_en("nur auf diesem Gerät", "on this device only") }}</td>
+        <td class="passkeys-actions">
+          <button type="button" class="button button-small button-secondary" data-dialog-open="passkey-name-{{ p.id }}" aria-haspopup="dialog">{{ de_en("Umbenennen …", "Rename …") }}</button>
+          <form class="inline" method="post" action="{{ url_for('passkeys.remove', passkey_id=p.id) }}" data-confirm="{{ de_en('Passkey „{name}“ entfernen?', 'Remove the passkey “{name}”?', name=p.name) }}" data-confirm-note="{{ de_en('Mit ihm kann man sich danach nicht mehr anmelden.', 'It can then no longer be used to sign in.') }}" data-confirm-ok="{{ de_en('Entfernen', 'Remove') }}" data-confirm-danger>{{ csrf() }}<button class="button button-small button-danger">{{ de_en("Entfernen", "Remove") }}</button></form>
+        </td></tr>
+    {% endfor %}
+    </tbody>
+  {% endcall %}
+  {% for p in passkeys %}
+  <dialog class="person-dialog xp-dialog is-narrow" id="passkey-name-{{ p.id }}" aria-labelledby="passkey-name-{{ p.id }}-title">
+    <div class="xp-dialog-head"><h2 id="passkey-name-{{ p.id }}-title">{{ de_en("Passkey umbenennen", "Rename passkey") }}</h2>
+      <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+    <form method="post" action="{{ url_for('passkeys.rename', passkey_id=p.id) }}" class="stack">
+      {{ csrf() }}
+      <label>{{ de_en("Name", "Name") }}
+        <input name="name" value="{{ p.name }}" maxlength="{{ passkey_name_length }}" required></label>
+      <div class="form-actions"><button class="button">{{ de_en("Speichern", "Save") }}</button>
+        <button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button></div>
+    </form>
+  </dialog>
+  {% endfor %}
+  {% endif %}
+  {% if passkeys|length < passkeys_max %}
+  <p><button type="button" class="button button-secondary" data-dialog-open="passkey-add" aria-haspopup="dialog">{{ de_en("Passkey hinzufügen …", "Add passkey …") }}</button></p>
+  <dialog class="person-dialog xp-dialog is-narrow" id="passkey-add" aria-labelledby="passkey-add-title">
+    <div class="xp-dialog-head"><h2 id="passkey-add-title">{{ de_en("Passkey hinzufügen", "Add passkey") }}</h2>
+      <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+    {% if not has_password and not fresh %}
+    {# without a password the fresh sign-in is the proof, as for adding a password #}
+    <p>{{ de_en("Dafür muss die Anmeldung frisch sein (höchstens {n} Minuten alt), damit niemand an einem offen gelassenen Rechner einen weiteren Zugang zu Ihrem Konto anlegt.",
+      "For this the sign-in must be fresh (at most {n} minutes old), so that nobody at a computer left open adds a further way into your account.", n=minutes) }}</p>
+    <p><a class="button" href="{{ url_for('auth.login', fresh=1, next=url_for('accounts.index') + '#passkeys') }}">{{ orcid_icon() }}{{ de_en("Neu mit ORCID anmelden", "Sign in with ORCID again") }}</a></p>
+    {% else %}
+    <form class="stack" autocomplete="off" data-passkey-add data-options="{{ url_for('passkeys.add_options') }}" data-verify="{{ url_for('passkeys.add') }}">
+      {{ csrf() }}
+      <label>{{ de_en("Name", "Name") }} <span class="hint">{{ de_en("woran Sie ihn in der Liste erkennen, z. B. „Laptop“", "how you recognise it in the list, e.g. “Laptop”") }}</span>
+        <input name="name" maxlength="{{ passkey_name_length }}" required></label>
+      {% if has_password %}<input type="email" name="username" value="{{ login.email }}" autocomplete="username" readonly hidden>
+      <label>{{ de_en("Aktuelles Passwort", "Current password") }}
+        <input type="password" name="current" autocomplete="current-password" required></label>{% endif %}
+      {% if totp %}<label>{{ de_en("Code aus der Authenticator-App oder Ersatzcode", "Code from the authenticator app or a backup code") }}
+        <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required></label>{% endif %}
+      <p class="flash flash-error" role="alert" data-passkey-error hidden></p>
+      <div class="form-actions"><button class="button">{{ de_en("Hinzufügen", "Add") }}</button>
+        <button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button></div>
+    </form>
+    {% endif %}
+  </dialog>
+  {% else %}
+  <p class="muted small">{{ de_en("Ein Konto kann höchstens {n} Passkeys haben.", "An account can have at most {n} passkeys.", n=passkeys_max) }}</p>
   {% endif %}
   </div>
 </section>

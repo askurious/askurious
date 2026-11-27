@@ -1,7 +1,7 @@
 """Signing in: with ORCID (OAuth 2.0, /authenticate scope), or with e-mail address and password.
 
 ORCID returns the iD and the public name directly in the token response,
-so no further API call is needed for login. Passwords: app/passwords.py.
+so no further API call is needed for login. Passwords: app/passwords.py. The third way, a passkey: app/passkeys.py.
 """
 import secrets
 import time
@@ -29,7 +29,7 @@ def load_user(user_id):
     request) and the session is of the account's current version (User.get_id)."""
     from flask import g
 
-    from app import sessions
+    from app import sessions, twofactor
 
     parts = str(user_id).split(".") + ["", "", ""]
     uid, version, sid = parts[:3]
@@ -48,14 +48,13 @@ def load_user(user_id):
         return None
     if not current_app.config["DEV_LOGIN"] and not _may_sign_in_kept(user.orcid):
         return None
-    if session.get("signed_in_via") is None and parts[3] in ("orcid", "password", "password+code", "link"):
+    if session.get("signed_in_via") is None and parts[3] in twofactor.VIAS:
         session["signed_in_via"] = parts[3]  # authenticated session/remember token, after version and revocation checks
     # ADMIN_ORCIDS decides, not the last sign-in: a new admin need not sign in again, a removed one loses the pages
     admin = user.orcid in current_app.config["ADMIN_ORCIDS"]
-    from app import twofactor
-
     method = session.get("signed_in_via")
-    if (admin and method == "password") or (not admin and twofactor.enabled(user) and method not in ("orcid", "password+code")):
+    if (admin and method == "password") or (not admin and twofactor.enabled(user)
+                                            and method not in ("orcid", "password+code", twofactor.VIA_PASSKEY)):
         # signed in with the password alone, before the iD came into ADMIN_ORCIDS: a site admin gives a code as well,
         # so this session ends (audit 2026-10-09b, T3; twofactor.SIGNED_IN_VIA)
         return None
@@ -301,7 +300,7 @@ def remember(user, fresh=True, keep_age=False, via=None):
     ORCID and proves nothing about who sits there now; neither does signing the browser in again after "überall
     abmelden", which leaves the time of the sign-in as it is. keep_age: the browser is signed in again without a
     new sign-in ("überall abmelden"); the new session keeps the age of the one before (SESSION_MAX_AGE).
-    via: how the person signed in ("orcid", "link", "password", "password+code"; twofactor.SIGNED_IN_VIA, T3 of the
+    via: how the person signed in ("orcid", "link", "password", "password+code", "passkey"; twofactor.SIGNED_IN_VIA, T3 of the
     audit 2026-10-09b); None keeps what this browser's session says (a new password, "überall abmelden")."""
     from app import sessions, twofactor
 

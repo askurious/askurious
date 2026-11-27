@@ -5082,6 +5082,19 @@ textarea[name="research_question"] { field-sizing: content; min-height: 4.6em; }
   .sessions-table td[data-label]::before { content: attr(data-label) ": "; }
   .sessions-table td.sessions-end { grid-column: 2; grid-row: 1 / span 3; align-self: center; }
 }
+/* the passkeys of the account (accounts/index.html, app/passkeys.py): as the sessions, the two buttons at the right */
+.passkeys-table td.passkeys-actions { text-align: right; white-space: nowrap; padding-left: 16px; }
+.passkeys-table td.passkeys-actions > * { margin-left: 6px; }
+@media (max-width: 600px) {
+  .passkeys-table, .passkeys-table tbody { display: block; }
+  .passkeys-table thead { display: none; }
+  .passkeys-table tr { display: block; padding: 6px 8px; }
+  .passkeys-table td { display: block; padding: 0 !important; }
+  .passkeys-table td[data-label] { font-size: 0.85rem; color: var(--muted); }
+  .passkeys-table td[data-label]::before { content: attr(data-label) ": "; }
+  .passkeys-table td.passkeys-actions { text-align: left; padding-top: 6px !important; }
+  .passkeys-table td.passkeys-actions > *:first-child { margin-left: 0; }
+}
 /* the palette: a feedback type that just became possible (app.js) */
 .pg-count.pg-count-new { background: var(--ai-soft); color: var(--ai); animation: ai-pulse 1.4s ease-in-out 3; }
 .palette-new-badge { margin-left: 4px; vertical-align: 1px; }

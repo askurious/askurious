@@ -212,7 +212,7 @@ class User(UserMixin, db.Model):
         token = f"{self.id}.{(row.session_version or 0) if row is not None else 0}.{sessions.current_sid()}"
         via = session.get("signed_in_via") if has_request_context() else None
         # Flask-Login signs this value in its remember cookie too. Preserve the proof of ORCID across restore.
-        return token + "." + via if via in ("orcid", "password", "password+code", "link") else token
+        return token + "." + via if via in ("orcid", "password", "password+code", "link", "passkey") else token
 
 
 class MemberInvite(db.Model):
@@ -669,6 +669,28 @@ class LoginSession(db.Model):
     last_seen_at: Mapped[datetime | None] = mapped_column(index=True)
     label: Mapped[str] = mapped_column(String(60), default="")  # browser and system, coarse ("Firefox · Windows")
     ended_at: Mapped[datetime | None]
+
+
+class Passkey(db.Model):
+    """A passkey of an account (WebAuthn; app/passkeys.py): a third way to sign in besides ORCID and e-mail with
+    password, always in addition to one of them. Kept: the credential's id and public key (base64url; the private
+    key never leaves the person's device or its key store), the counter of signatures, the name the person gave it,
+    when it was made and last used, and whether it is synchronised (the backup state the device reports). No
+    attestation, no make or model of the device. `user_handle`: a random id of the account for the device (32 bytes,
+    the same for all passkeys of the account; neither the account's number nor an address)."""
+
+    __tablename__ = "passkey"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id", ondelete="CASCADE"), index=True)
+    credential_id: Mapped[str] = mapped_column(String(1400), unique=True)
+    public_key: Mapped[str] = mapped_column(Text)
+    user_handle: Mapped[str] = mapped_column(String(64))
+    sign_count: Mapped[int] = mapped_column(default=0)
+    name: Mapped[str] = mapped_column(String(60), default="")
+    backed_up: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+    last_used_at: Mapped[datetime | None]
 
 
 class AuthToken(db.Model):
