@@ -6,7 +6,7 @@
 <details class="res-dist" id="sem-versions"{% if request.args.get('va') %} open{% endif %}><summary>{{ de_en("Versionen des Modells", "Versions of the model") }} <span class="hint">{{ de_en("{k} Versionen", "{k} versions", k=rows|length) }}{% if vpage.current %} · {{ de_en("gezeigt: Version {k}", "shown: version {k}", k=vpage.current.number) }}{% endif %}</span></summary>
   <p class="muted small">{{ de_en("Jede Schätzung mit anderen Einstellungen des Modells ist eine Version; ihre Kennzahlen bleiben, wie sie damals waren. Hauptmodell ist die Version, die bei Beginn der Erhebung vorab festgelegt war (Präregistrierung), sonst die erste; alle anderen sind explorativ", "Every estimate with other settings of the model is a version; its figures stay as they were. The main model is the version set in advance at the start of the fieldwork (pre-registration), otherwise the first; all others are exploratory") }} {{ apa.cite([S.MACCALLUM_1992, sem_versions.SIMMONS]) }}.</p>
   {{ why("sem_versions") }}
-  <form method="get" action="{{ url_for('surveys.results', survey_id=survey.id) }}#sem-versions">
+  <form method="get" action="{{ url_for('surveys.results_model', survey_id=survey.id) }}#sem-versions">
   <div class="res-scroll"><table class="res-table sem-versions">
     <thead><tr><th>{{ de_en("A", "A") }}</th><th>{{ de_en("B", "B") }}</th><th>{{ de_en("Version", "Version") }}</th><th>{{ de_en("Was sich geändert hat", "What changed") }}</th><th class="num">N</th><th class="num">{{ de_en("höchstes R²", "highest R²") }}</th><th class="num">{{ term("bic", "BIC") }}</th><th>{{ de_en("Stand", "Date") }}</th></tr></thead>
     <tbody>{% for r in rows|reverse %}{% set v = r.v %}

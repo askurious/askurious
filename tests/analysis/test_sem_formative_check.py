@@ -111,18 +111,18 @@ def test_formative_check_from_the_plan_to_the_results(app, client, survey, monke
     monkeypatch.setattr(sem_model, "BOOT_DRAWS", 150)
     monkeypatch.setattr(sem_model, "BOOT_DRAWS_FINAL", 300)
     app.config["HB_SYNC"] = True
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     part = page[page.index('id="sem"'):]
     assert "1 Redundanzanalyse (Konvergenzvalidität)" in part and "ausreichend (ab 0,70)" in part
     assert part.count("Bootstrap fehlt") >= 2
     client.post("/surveys/1/results/sem-bootstrap")
-    page = client.get("/surveys/1/results").data.decode()
+    page = client.get("/surveys/1/results/model").data.decode()
     part = page[page.index('id="sem"'):]
     assert "Bootstrap mit 150 Ziehungen" in part and "Endfassung: 300 Ziehungen" in part
     assert "behalten · Gewicht signifikant" in part
     assert "Cheah" in page and "Cenfetelli" in page  # the sources of the page list
     client.post("/surveys/1/results/sem-bootstrap", data={"draws": "final"})
-    page = client.get("/surveys/1/results").data.decode()
+    page = client.get("/surveys/1/results/model").data.decode()
     part = page[page.index('id="sem"'):]
     assert "Bootstrap mit 300 Ziehungen" in part and "Endfassung:" not in part
     md = client.get("/surveys/1/export/methods-section.md").data.decode()
@@ -139,7 +139,7 @@ def test_without_a_global_measure_the_page_says_so(app, client, survey):
     form = _survey(app, client)
     form.update(sem_mode_tb="formative")
     client.post("/surveys/1/researchdesign", data=MultiDict(form))
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     part = page[page.index('id="sem"'):]
     assert "Ohne Globalmaß, daher keine Redundanzanalyse" in part
 
@@ -152,9 +152,9 @@ def test_the_diagram_draws_formative_statements_with_their_weights(app, client, 
     client.post("/surveys/1/researchdesign", data=MultiDict(form))
     monkeypatch.setattr(sem_model, "BOOT_DRAWS", 120)
     app.config["HB_SYNC"] = True
-    client.get("/surveys/1/results?go=1")
+    client.get("/surveys/1/results/model?go=1")
     client.post("/surveys/1/results/sem-bootstrap")
-    page = client.get("/surveys/1/results").data.decode()
+    page = client.get("/surveys/1/results/model").data.decode()
     part = page[page.index('id="sem-diagram"'):]
     assert part.count('class="sem-indicator is-formative"') + part.count('class="sem-indicator is-warn is-formative"') == 4
     assert " · w = " in part and " · λ = " in part

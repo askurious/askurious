@@ -20,14 +20,14 @@ def test_versions_from_the_results_page(app, client, survey, monkeypatch):
     form = _survey(app, client)
     monkeypatch.setattr(sem_model, "BOOT_DRAWS", 80)
     app.config["HB_SYNC"] = True
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     assert len(_versions(app)) == 1
     part = page[page.index('id="sem"'):]
     assert "Hauptmodell · Version 1" in part and 'id="sem-versions"' in part and "erste Version" in part
-    client.get("/surveys/1/results")  # the same settings: no new version
+    client.get("/surveys/1/results/model")  # the same settings: no new version
     assert len(_versions(app)) == 1
     client.post("/surveys/1/results/sem-bootstrap")  # the intervals of the same data come into version 1
-    client.get("/surveys/1/results")
+    client.get("/surveys/1/results/model")
     with app.app_context():
         (v1,) = sem_versions.versions(db.session.get(Survey, 1))
         assert v1.figures["boot"] == 80 and all(p[3] is not None for p in v1.figures["paths"])
@@ -35,7 +35,7 @@ def test_versions_from_the_results_page(app, client, survey, monkeypatch):
     # other settings: tb formative -> version 2, exploratory
     form.update(sem_mode_tb="formative")
     client.post("/surveys/1/researchdesign", data=MultiDict(form))
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     assert [n for n, _, _ in _versions(app)] == [1, 2]
     part = page[page.index('id="sem"'):]
     assert "Version 2 · explorativ" in part and "formativ: +tb" in part
@@ -48,7 +48,7 @@ def test_versions_from_the_results_page(app, client, survey, monkeypatch):
     # comparison of two versions
     with app.app_context():
         ids = [v.id for v in sem_versions.versions(db.session.get(Survey, 1))]
-    page = client.get(f"/surveys/1/results?va={ids[0]}&vb={ids[1]}").data.decode()
+    page = client.get(f"/surveys/1/results/model?va={ids[0]}&vb={ids[1]}").data.decode()
     part = page[page.index('id="sem-compare-versions"'):]
     assert "Vergleich V1 ↔ V2" in part and "BIC" in part and "BIC-Gewicht" in part and "R²" in part
     # leaving a statement out: only with a reason
@@ -60,7 +60,7 @@ def test_versions_from_the_results_page(app, client, survey, monkeypatch):
         s = db.session.get(Survey, 1)
         assert study_plan.plan_of(s)["sem"]["dropped"] == {"einst_3": "doppelt gemessen"}
         assert sem_model.build(s)["spec"]["latent"]["einst"] == ["einst_1", "einst_2"]
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     assert "einst_3 weggelassen · Grund: „doppelt gemessen“" in page and len(_versions(app)) == 3
     assert "Weggelassen: einst_3" in page
     client.post("/surveys/1/results/sem-version", data={"action": "undrop", "code": "einst_3"})
@@ -68,7 +68,7 @@ def test_versions_from_the_results_page(app, client, survey, monkeypatch):
         assert study_plan.plan_of(db.session.get(Survey, 1))["sem"]["dropped"] == {}
     # adopting version 1 brings back its settings: no new version, the main model again
     client.post("/surveys/1/results/sem-version", data={"action": "adopt", "version": str(ids[0])})
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     assert len(_versions(app)) == 3 and "Hauptmodell · Version 1" in page
     # rename, delete (not the main model), the current data as a new version
     client.post("/surveys/1/results/sem-version", data={"action": "name", "version": str(ids[1]), "name": "TB formativ"})
@@ -161,7 +161,7 @@ def test_a_pls_model_with_a_relation_without_direction_shows(app, client, survey
         "h_text": ["TB wirkt auf Absicht", "Einstellung hängt mit TB zusammen"], "h_kind": ["effect", "correlation"],
         "h_dir": ["pos", "pos"], "h_iv": ["tb", "einst"], "h_dv": ["absicht", "tb"], "h_mv": ["", ""],
         "h_analysis": ["sem", "sem"], "sem_method": "pls"}))
-    response = client.get("/surveys/1/results?go=1")
+    response = client.get("/surveys/1/results/model?go=1")
     assert response.status_code == 200
     page = response.data.decode()
     assert "↔" in page[page.index('id="sem"'):]

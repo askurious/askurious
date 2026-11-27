@@ -61,11 +61,9 @@
 {% else %}
 {% if hyps %}{% include "surveys/_hypotheses.html" %}{% endif %}
 {# the analyses with a page of their own (surveys/analysis.py) #}
-{% if analyses %}{% include "surveys/_analyses.html" %}{% endif %}
-{# the structural equation model (app/sem_model.py) #}
-{% if sem %}{% include "surveys/_sem.html" %}{% elif sem_job %}{% include "surveys/_sem_running.html" %}{% endif %}
-{# the models over the waves of a panel (app/panel_models.py) #}
-{% if longitudinal %}{% include "surveys/_panel_models.html" %}{% endif %}
+{% if analyses or model_analyses %}{% include "surveys/_analyses.html" %}{% endif %}
+{# the structural equation model, the models over the waves of a panel and the vignettes have pages of their own
+   (surveys/analysis_model.html); they are lines of "Analysen" above #}
 
 {% if r.gender %}
 <section class="panel" id="res-{{ r.gender.item.code }}"><details class="res-fold" open>
@@ -137,7 +135,6 @@
     <a class="button button-secondary button-small" href="{{ url_for('surveys.results_table', survey_id=survey.id, lang='en') }}">{{ icon("download", 16) }} {{ de_en("Word-Tabelle (Englisch)", "Word table (English)") }}</a></p>
 </details></section>
 {% endif %}
-{% if r.vignettes %}{% include "surveys/_vignette_results.html" %}{% endif %}
 {% if cmp and cmp.scales %}{% include "surveys/_compare_scales.html" %}{% endif %}
 {% endif %}{# not empty (U26) #}
 {# one fold with the sources of every procedure the page shows (results.page_sources) #}
@@ -147,6 +144,5 @@
 </div>
 <script src="{{ url_for('static', filename='omega.js') }}" defer></script>
 <script src="{{ url_for('static', filename='figure_png.js') }}" defer></script>
-{% if sem %}<script src="{{ url_for('static', filename='sem_drag.js') }}" defer></script>{% endif %}
 {% if survey.live is not none %}<script src="{{ url_for('static', filename='live.js') }}" defer></script>{% endif %}
 {% endblock %}

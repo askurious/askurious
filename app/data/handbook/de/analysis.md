@@ -15,7 +15,7 @@ Die Ergebnisse auf der oben gewählten Grundlage, laufend aktuell, während Date
 - **Nach Gruppen aufteilen**, z. B. nach Versuchsbedingung; bei zufälliger Zuteilung ist der Unterschied als Wirkung lesbar.
 - **Analysen**: Jede Frage der Conjoint-Familie steht hier als Zeile mit ihrem Stand und öffnet ihre eigene Seite (siehe „Conjoint-Auswertung“ unten).
 - **Wahlmodelle** (auf der Seite der Conjoint-Auswertung): Zählwerte, aggregiertes Logit und Hierarchical Bayes (HB) je Person, Wichtigkeit und Teilnutzen, Zahlungsbereitschaft, Segmente (Latent-Class-Analyse), Wechselwirkungen zwischen Merkmalen, ein Marktsimulator.
-- **Längsschnitt über die Wellen** (mit verknüpften Wellen): Mittelwerte je Welle, Messinvarianz über die Zeit, Wachstumskurven und das Cross-Lagged-Panel-Modell (ab drei Wellen das RI-CLPM), gerechnet auf Knopfdruck über alle verknüpften Personen; sichtbar mit Leserecht in jeder Welle.
+- **Längsschnitt über die Wellen** (mit verknüpften Wellen, auf einer eigenen Seite): Mittelwerte je Welle, Messinvarianz über die Zeit, Wachstumskurven und das Cross-Lagged-Panel-Modell (ab drei Wellen das RI-CLPM), gerechnet auf Knopfdruck über alle verknüpften Personen; sichtbar mit Leserecht in jeder Welle.
 
 ![Skalen im Überblick: Skalenwerte mit α, ω und Korrelationen](img/results-overview.jpg)
 
@@ -55,6 +55,17 @@ Die Seite hat flache Abschnitte in fester Reihenfolge, je nachdem, was das Verfa
 
 Datenpool und Ansicht gelten wie auf der Ergebnisseite; die Zeile unter der Überschrift nennt die Grundlage und führt zum Ändern dorthin zurück.
 Knöpfe rechnen an Ort und Stelle mit Fortschrittsbalken, die Seite lädt nicht neu. Adressen der Ergebnisseite, die früher an eine Stelle der Conjoint-Auswertung führten, leiten auf die neue Seite weiter.
+
+### Modelle auf eigenen Seiten
+
+Auch das **Strukturgleichungsmodell** (ohne Hypothesen: das Messmodell aller Skalen), der **Längsschnitt über die Wellen** und die **Vignetten** haben je eine eigene Seite unter „Ergebnisse“ und stehen im Abschnitt **Analysen** der Ergebnisseite als Zeile mit ihrem Stand (zum Beispiel „Version 3 · aktuell“, „läuft“, „noch nicht geschätzt“) und dem Knopf „Öffnen“.
+„Ergebnisse je Hypothese“ bleibt als kurze Tabelle auf der Ergebnisseite.
+
+- **Strukturgleichungsmodell**: Schätzung und Modellgüte, Schritt 1 (Messmodell), Schritt 2 (Strukturmodell mit Pfaddiagramm, Pfaden, Moderationen, indirekten Effekten, Konkurrenzmodell, Messinvarianz), Details (Versionen des Modells, Rechenweg, lavaan-Syntax, Vorhersagekraft) und Herunterladen (Word-Tabellen, Konstruktwerte). Bootstrap und Schätzung laufen im Hintergrund, die Seite zeigt den Balken.
+- **Längsschnitt über die Wellen**: Mittelwerte je Welle, Messinvarianz über die Zeit, Wachstumskurven und das Cross-Lagged-Panel-Modell; „Längsschnitt rechnen“ startet die Rechnung, am Ende stehen die Word-Tabellen.
+- **Vignetten**: je Schleife und Frage die Mittelwerte je Stufe und die Regression mit nach Person geclusterten Standardfehlern; am Ende das Langformat als CSV.
+
+Adressen der Ergebnisseite, die früher an eine Stelle dieser Abschnitte führten (zum Beispiel `#sem-versions`), leiten auf die neue Seite weiter.
 
 ---
 

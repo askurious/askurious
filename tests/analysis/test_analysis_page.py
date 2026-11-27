@@ -95,3 +95,19 @@ def test_only_questions_of_the_conjoint_family(app, client, survey):
     prepared(app, client)
     assert client.get("/surveys/1/results/analysis/1").status_code == 404    # the consent
     assert client.get("/surveys/1/results/analysis/999").status_code == 404
+
+
+def test_models_have_pages_of_their_own(app, client, survey):
+    """Stage 2: the structural equation model (here the measurement model of all scales) is a line of "Analysen" and
+    a page below "Ergebnisse"; a survey without waves or vignettes has no such pages."""
+    from tests.analysis.test_sem_fit_job import _survey
+
+    _survey(app, client, n=300, plan=False)
+    html = client.get("/surveys/1/results?go=1").data.decode()
+    assert 'id="analyses"' in html and 'href="/surveys/1/results/model" data-analysis-link="sem"' in html
+    assert 'id="sem"' not in html and "sem_drag.js" not in html
+    page = client.get("/surveys/1/results/model").data.decode()
+    assert page.count("<h1") == 1 and '<section class="panel" id="sem">' in page and "<h2>Herunterladen</h2>" in page
+    assert 'class="back-link" href="/surveys/1/results#analyses"' in page and "res-fold" not in page
+    assert client.get("/surveys/1/results/longitudinal").status_code == 404
+    assert client.get("/surveys/1/results/vignettes?go=1").status_code == 404

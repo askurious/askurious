@@ -64,7 +64,7 @@ def test_everyone_has_the_plan_fields_and_the_block(app, client, survey):
     assert "experimentell" not in page[page.index("plan-hyps"):]
     assert "Vermittlung (indirekter Effekt)" in page and "Strukturgleichungsmodell schätzen" in page
     # without hypotheses: the measurement model of all scales
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     assert 'id="sem"' in page and "Messmodell aller Skalen" in page and "CFI" in page
     assert client.post("/surveys/1/results/sem-bootstrap").status_code in (302, 303)
 
@@ -82,7 +82,7 @@ def test_model_from_the_plan_verdicts_and_bootstrap(app, client, survey):
         assert set(model["spec"]["paths"]) == {("tb", "einst"), ("einst", "absicht"), ("tb", "absicht")}
         assert model["spec"]["indirect"] == [("tb", "einst", "absicht")]
         assert "Strukturgleichungsmodell" in study_plan.markdown(s)
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     assert 'id="sem"' in page and "Strukturgleichungsmodell" in page and "RMSEA" in page and "<svg" in page
     assert "Bootstrap rechnen" in page and "Modellfit für den Bericht" in page
     # W68: the fit verdict as a sign and a word too; W69: sources linked, intervals "[a; b]", "Aussagen" in the nodes
@@ -100,7 +100,7 @@ def test_model_from_the_plan_verdicts_and_bootstrap(app, client, survey):
     assert "Modifikationsindizes" in part
     app.config["HB_SYNC"] = True
     client.post("/surveys/1/results/sem-bootstrap")
-    page = client.get("/surveys/1/results").data.decode()
+    page = (client.get("/surveys/1/results").data.decode() + client.get("/surveys/1/results/model").data.decode())
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
     assert hyp.count("Unterstützt") == 3 and "indirekter Effekt β = 0," in hyp and "(Bootstrap)" in hyp
     assert "Bootstrap mit 2000 Ziehungen" in page and "Intervalle unsicher" not in page
@@ -111,7 +111,7 @@ def test_model_from_the_plan_verdicts_and_bootstrap(app, client, survey):
 def test_pls_and_too_few_cases(app, client, survey):
     experiments_on(client, "sem")
     _survey(app, client, n=60)
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     assert "Zu wenige vollständige Teilnahmen: 60 von mindestens" in page
     client.post("/surveys/1/researchdesign", data=MultiDict({
         "h_id": ["", ""], "h_text": ["TB wirkt auf Einstellung", "Einstellung wirkt auf Absicht"],
@@ -123,7 +123,7 @@ def test_pls_and_too_few_cases(app, client, survey):
         for answers in _answers(rng, 120):
             s.responses.append(Response(source="real", status=Response.COMPLETED, answers=answers))
         db.session.commit()
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     assert "varianzbasiert (PLS" in page and "PLS prüft Pfade nur mit dem Bootstrap" in page
     # W70: without the bootstrap the paths say so, and its button is the main one, above the paths
     part = page[page.index('id="sem"'):]
@@ -131,7 +131,7 @@ def test_pls_and_too_few_cases(app, client, survey):
     assert part.index("Bootstrap rechnen") < part.index("sem-paths")
     app.config["HB_SYNC"] = True
     client.post("/surveys/1/results/sem-bootstrap")
-    page = client.get("/surveys/1/results").data.decode()
+    page = (client.get("/surveys/1/results").data.decode() + client.get("/surveys/1/results/model").data.decode())
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
     assert hyp.count("Unterstützt") == 2
 
@@ -305,7 +305,7 @@ def test_a_collapsed_estimate_shows_only_why(app, client, survey, monkeypatch):
         return {**out, "chi2": -3962445288873.65, "problems": ["extreme"], "admissible": False}
 
     monkeypatch.setattr(sem, "fit_ml", collapsed)
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     part = page[page.index('id="sem"'):]
     assert "Die Schätzung ist gekippt" in part and "sem-paths" not in part and "Modellfit für den Bericht" not in part
     assert "Höchste Korrelationen zwischen Einflussgrößen" in part and "Aussagen, α = " in part   # the diagnosis
@@ -380,7 +380,7 @@ def test_control_variables_and_a_single_question_with_its_reliability(app, clien
         assert model["controls"] == {"alter": "alter"}
         assert {("alter", "einst"), ("alter", "absicht"), ("alter", "zufr")} <= set(model["spec"]["paths"])
         assert all(("alter", b) not in e["paths"] for e in model["hyps"].values() for b in ("einst", "absicht", "zufr"))
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     part = page[page.index('id="sem"'):]
     assert "Kontrolliert für alter" in part and "Kontrollvariable" in part
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
@@ -398,7 +398,7 @@ def test_control_variables_and_a_single_question_with_its_reliability(app, clien
         assert "daten$zufr_ <- daten$zufr" in text and 'modell <- paste0(modell, "\\n  zufr_ ~~ ", (1 - 0.6)' in text
         assert "Kontrollvariablen (Pfade auf alle erklärten Größen, ohne Hypothese): alter" in study_plan.markdown(s, "de")
         assert "zufr (0,60)" in study_plan.markdown(s, "de")
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     part = page[page.index('id="sem"'):]
     assert "Einzelfragen mit angenommener Reliabilität: zufr (0,60)" in part
     md = client.get("/surveys/1/export/methods-section.md").data.decode()
@@ -460,9 +460,9 @@ def test_pls_figures_formative_constructs_and_scores(app, client, survey):
         assert "Formative Konstrukte (PLS, Modus B): tb" in study_plan.markdown(s, "de")
         assert 'composite("F_tb", c("tb_1", "tb_2", "tb_3", "tb_4"), weights = mode_B)' in sem_model.r_script(s, "d.rds")
     app.config["HB_SYNC"] = True
-    client.get("/surveys/1/results?go=1")
+    client.get("/surveys/1/results/model?go=1")
     client.post("/surveys/1/results/sem-bootstrap")
-    page = client.get("/surveys/1/results").data.decode()
+    page = client.get("/surveys/1/results/model").data.decode()
     part = page[page.index('id="sem"'):]
     assert "R² korrigiert" in part
     assert 'id="sem-predict"' in part and "Q²<sub>predict</sub>" in part
@@ -497,7 +497,7 @@ def test_word_tables_and_lavaan_syntax(app, client, survey):
     from docx import Document
 
     _survey(app, client)
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     part = page[page.index('id="sem"'):]
     assert 'id="sem-syntax"' in part and "F_tb =~ tb_1 + tb_2 + tb_3 + tb_4" in part
     assert 'role="button"' in part[part.index('id="sem-syntax"'):] and "/results/sem.docx?lang=en" in part
@@ -542,7 +542,7 @@ def test_measurement_invariance_across_the_languages(app, client, survey):
         assert "Messinvarianz (konfigural, metrisch, skalar, strikt) über: Sprache der Befragung" in study_plan.markdown(s, "de")
         text = sem_model.r_script(s, "d.rds")
         assert 'group = "lang"' in text and 'group.equal = c("loadings", "intercepts")' in text and "lavTestLRT(" in text
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     part = page[page.index('id="sem-invariance"'):]
     assert "über Sprache der Befragung" in part and "skalar (+ gleiche Achsenabschnitte)" in part
     assert part.count('<span class="sem-mark">') >= 2 and "Höchste Stufe, die in Folge hält" in part
@@ -605,10 +605,10 @@ def test_fiml_and_ordered_categories_from_the_plan(app, client, survey, monkeypa
             "h_kind": ["effect", "effect", "mediation"], "h_dir": ["pos", "pos", "pos"],
             "h_iv": ["tb", "einst", "tb"], "h_dv": ["einst", "absicht", "absicht"], "h_mv": ["", "", "einst"],
             "h_analysis": ["sem", "sem", ""], "sem_method": "cb", "sem_shown": "1"}
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     assert "N = 240 vollständige Teilnahmen (60 mit Lücken" in page
     client.post("/surveys/1/researchdesign", data=MultiDict({**form, "sem_missing": "fiml"}))
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     part = page[page.index('id="sem"'):]
     assert "N = 300 Teilnahmen mit mindestens einer Antwort im Modell, davon 240 vollständig" in part
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
@@ -622,10 +622,10 @@ def test_fiml_and_ordered_categories_from_the_plan(app, client, survey, monkeypa
     app.config["HB_SYNC"] = True
     monkeypatch.setattr(sem_model, "BOOT_DRAWS", 60)  # the draws keep their gaps; few of them for the test
     client.post("/surveys/1/results/sem-bootstrap")
-    page = client.get("/surveys/1/results").data.decode()
+    page = (client.get("/surveys/1/results").data.decode() + client.get("/surveys/1/results/model").data.decode())
     assert "Bootstrap mit 60 Ziehungen" in page
     client.post("/surveys/1/researchdesign", data=MultiDict({**form, "sem_ordinal": "ordinal"}))
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     part = page[page.index('id="sem"'):]
     assert "χ²<sub>WLSMV</sub>" in part and "polychorische Korrelationen" in part and "N = 240 vollständige" in part
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
@@ -634,7 +634,7 @@ def test_fiml_and_ordered_categories_from_the_plan(app, client, survey, monkeypa
         s = db.session.get(Survey, 1)
         assert 'ordered = TRUE, estimator = "WLSMV"' in sem_model.r_script(s, "d.rds")
     client.post("/surveys/1/results/sem-bootstrap")
-    assert "Bootstrap mit 60 Ziehungen" in client.get("/surveys/1/results").data.decode()
+    assert "Bootstrap mit 60 Ziehungen" in (client.get("/surveys/1/results").data.decode() + client.get("/surveys/1/results/model").data.decode())
 
 
 def test_weighted_model_on_the_weighted_page(app, client, survey, monkeypatch):
@@ -660,7 +660,7 @@ def test_weighted_model_on_the_weighted_page(app, client, survey, monkeypatch):
                                                           "indirect": [list(t) for t in weighted["spec"]["indirect"]]}}
         out = compute.runner("sem")(inp, lambda *_: None)
         assert out["failed"] == 0 and out["indirect"][0][4] > out["indirect"][0][3]
-        page = client.get("/surveys/1/results?go=1").data.decode()
+        page = client.get("/surveys/1/results/model?go=1").data.decode()
         assert "ungewichtet" in page[page.index('id="sem"'):]
 
 
@@ -724,7 +724,7 @@ def test_second_order_factor_and_a_competing_model(app, client, survey):
         assert "F_tech =~ F_tech_A + F_tech_B + F_tech_C" in text
         assert "Konkurrenzmodell ohne: direkter Effekt in H1" in study_plan.markdown(s, "de")
         assert "Faktoren zweiter Ordnung über den Subskalen: tech" in study_plan.markdown(s, "de")
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     part = page[page.index('id="sem"'):]
     assert "tech (zweite Ordnung)" in part and "3 Subskalen" in part
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]

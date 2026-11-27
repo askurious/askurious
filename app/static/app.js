@@ -786,9 +786,13 @@ foldAll.forEach(function (btn) {
   // an address of the results page kept from before the analyses had pages of their own (#hb-12, #lc-12, #sim-12,
   // #quality-12, #holdout-12, #lc-profile-12, #ww-12): on to the page of that analysis, with what the address named
   function moved(id) {
+    // the same for the structural equation model (#sem, #sem-step1, #sem-versions …), the models over the waves
+    // (#panel, #panel-cross …) and the vignettes (#vignetten-vig1)
     var m = /^(?:hb|hb-part|hb-quality|lc|lc-part|lc-fold|lc-profile|sim|quality|holdout|ww)-(\d+)$/.exec(id || "");
-    if (!m || document.getElementById(id)) return false;
-    var link = page.querySelector('[data-analysis-link="' + m[1] + '"]');
+    var model = /^(sem|panel|vignetten)(?:-.+)?$/.exec(id || "");
+    if ((!m && !model) || document.getElementById(id)) return false;
+    var key = m ? m[1] : { sem: "sem", panel: "panel", vignetten: "vignettes" }[model[1]];
+    var link = page.querySelector('[data-analysis-link="' + key + '"]');
     if (!link) return false;
     var p = new URLSearchParams(location.search);
     p.delete("go");

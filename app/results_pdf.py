@@ -332,6 +332,32 @@ def _with_analyses(root, survey):
             panel.tag = "div"
             panel.attrib.pop("id", None)
             holder.append(panel)
+    # the structural equation model, the models over the waves and the vignettes (surveys/analysis_model.html): back
+    # after the section "Analysen", the panels of a model as the one section the page had ("sem", "panel")
+    views = {"sem": analysis.results_model, "panel": analysis.results_longitudinal, "vignettes": analysis.results_vignettes}
+    place = root.xpath("//section[@id='analyses']")
+    for link in root.xpath("//section[@id='analyses']//a[@data-analysis-link]"):
+        key = link.get("data-analysis-link")
+        if key not in views:
+            continue
+        try:
+            out = inspect.unwrap(views[key])(survey.id)
+            html = out.get_data(as_text=True) if hasattr(out, "get_data") else str(out)
+            page = lxml.html.fromstring(html).xpath("//*[contains(concat(' ', @class, ' '), ' analysis-page ')]")
+        except Exception:  # noqa: BLE001 - the report is made without this model
+            current_app.logger.exception("results report: the page of a model could not be read")
+            continue
+        panels = [p for p in (page[0].xpath("./section") if page else []) if not (p.get("id") or "").endswith("-downloads")]
+        if not panels:
+            continue
+        if key != "vignettes":  # one section, as before the steps became panels
+            for more in panels[1:]:
+                for child in list(more):
+                    panels[0].append(child)
+            panels = panels[:1]
+        for panel in panels:
+            place[-1].addnext(panel)
+            place.append(panel)
     return root
 
 
