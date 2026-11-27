@@ -184,22 +184,22 @@ def test_p6_simulator_opening_scenario_kept_with_the_results(app, client, survey
 
     _hb(app, client)
     _quiet(client)
-    first = client.get("/surveys/1/results").data.decode()
+    first = client.get("/surveys/1/results/analysis/2").data.decode()
     computed = []
     view = simulator.view
     monkeypatch.setattr(simulator, "view", lambda *a, **k: computed.append(1) or view(*a, **k))
-    again = client.get("/surveys/1/results").data.decode()
+    again = client.get("/surveys/1/results/analysis/2").data.decode()
     assert not computed and _shares(again) == _shares(first) and _body(again) == _body(first)
     # a scenario of its own in the address is computed
-    client.get("/surveys/1/results?sim=2&sim_n=2&sim_0_0=0&sim_0_2=0&sim_0_price=75&sim_1_0=1&sim_1_2=0&sim_1_price=50")
+    client.get("/surveys/1/results/analysis/2?sim=2&sim_n=2&sim_0_0=0&sim_0_2=0&sim_0_price=75&sim_1_0=1&sim_1_2=0&sim_1_price=50")
     assert len(computed) == 1
     # a saved scenario changes what the page opens with: computed anew, then kept again
     client.post("/surveys/1/results/sim/2/save", data={"sim": "2", "sim_name": "Zwei", "sim_n": "2", "sim_0_0": "0",
                                                        "sim_0_2": "0", "sim_0_price": "60", "sim_1_0": "1", "sim_1_2": "0",
                                                        "sim_1_price": "50"})
-    saved = client.get("/surveys/1/results").data.decode()
+    saved = client.get("/surveys/1/results/analysis/2").data.decode()
     assert len(computed) == 2
-    client.get("/surveys/1/results")
+    client.get("/surveys/1/results/analysis/2")
     assert len(computed) == 2 and "Zwei" in saved
 
 
@@ -295,7 +295,7 @@ def test_one_statement_subscale(app, client, survey):
         model = sem_model.build(s)  # the measurement model keeps the other scales and subscale A
         assert model["mode"] == "measurement" and "tb:A" in model["spec"]["latent"]
         assert "tb:B" not in model["spec"]["latent"] and model["skipped"] == ["tb · B"]
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     assert "Ohne die Subskalen mit nur einer Aussage" in page
     client.post("/surveys/1/researchdesign", data=MultiDict({
         "research_question": "x", "goal": "correlation", "design": "cross",
@@ -390,9 +390,9 @@ def test_moderated_mediation_by_two_groups_in_plan_page_and_r_script(app, client
     page = client.get("/surveys/1/researchdesign").data.decode()
     assert "je Pfad (x → m und m → y)" in page
     page = client.get("/surveys/1/results?go=1").data.decode()
-    hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
+    hyp = page[page.index('id="hypothesen"'):]
     assert "bedingte indirekte Effekte" in hyp and "(G1)" in hyp and "(G2)" in hyp and "(−1 SD)" not in hyp
-    part = page[page.index('id="sem"'):]
+    part = client.get("/surveys/1/results/model?go=1").data.decode()
     assert "grp = „G1“" in part
 
 

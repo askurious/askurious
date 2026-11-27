@@ -6,6 +6,7 @@ from werkzeug.datastructures import MultiDict
 from app import flow, panel, quotas
 from app.extensions import db
 from app.models import Quota, Response, Survey
+from tests.helpers.report_page import report_page
 from tests.quotas.test_quotas import E, Q, build, counters, finish, questionnaire, screen, set_flow, start
 
 SPEC = "gender: Männer = 1; Frauen = 2\nage: 18 bis 29 = 18..29 [25]; 30 bis 49 = 30..49 [40]; ab 50 = >= 50 [35]"
@@ -309,7 +310,8 @@ def test_results_page_and_method_section_show_the_quotas(app, client, survey):
     uid = start(app, client)
     finish(uid, screen(app, uid, "1")), finish(uid, screen(app, uid, "2")), finish(uid, screen(app, uid, "2"))
     screen(app, uid, "2").get(f"/s/{uid}")
-    html = client.get("/surveys/1/results").data.decode()
+    html = report_page(app)  # the section "Quoten" stands in the page the PDF report reads, no longer on the page itself
+    assert "quota-results" not in client.get("/surveys/1/results").data.decode()
     assert "<h2>Quoten" in html and "zählt bei Abschluss, hart" in html
     assert '<td class="num">50,0 %</td>' in html and '<td class="num">75,0 %</td>' in html         # men 1 of 2, sum 3 of 4
     from app import methods
@@ -338,7 +340,7 @@ def test_marked_completions_do_not_count_as_reached(app, client, survey):
                                  .order_by(Response.id.desc())).first()   # a woman, the hidden field filled in
         bot.paradata = {**(bot.paradata or {}), "_bot": 1}
         db.session.commit()
-    html = client.get("/surveys/1/results").data.decode()
+    html = report_page(app)
     assert "markiert</th>" in html
     assert '<td class="num">50,0 %</td>' in html and '<td class="num">75,0 %</td>' not in html   # women 1 of 2, sum 2 of 4
     from app import methods

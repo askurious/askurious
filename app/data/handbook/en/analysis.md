@@ -7,7 +7,11 @@ This page describes the results, the dashboards and the export.
 ![Results per hypothesis: test, result, sentence for the report and what the test could detect](img/results-hypotheses.jpg)
 
 **What it is.**
-The results of the basis chosen above, live while data come in:
+The results of the basis chosen above, live while data come in.
+At the top is **Basis and view**: one line says what the figures rest on; the button “Data pool …” opens in a dialog what is saved for the survey (data sources, marked participations, weighting), and the page computes anew after it closes. “This view only” below changes only this page: include marked ones, weighted, split into groups, show only.
+The order below is fixed: results per hypothesis, analyses, scales at a glance, scales by groups, then the questions (open at first). Quotas with target and actual are under “Flow” › “Quotas”, no longer here; the PDF results report still contains them.
+
+In detail:
 
 - **Results per hypothesis**, from the research plan: the test and why it was chosen, supported or not, the sentence for the report in APA style, and **what the test could detect** with the actual n (a sensitivity analysis), so that "not supported" is not read as "no effect" when the sample was too small.
 - **Per element**: n, M, SD, median, confidence intervals, distributions; for scales Cronbach's α and McDonald's ω with intervals, and an item analysis.

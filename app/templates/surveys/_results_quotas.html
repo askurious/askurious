@@ -1,0 +1,28 @@
+{# The section "Quoten" (target and actual) as the results page showed it until the restructuring of the results part
+   (stage 3, E6): now only in the page the PDF report reads (surveys/results.html, g.results_report); people see the
+   quotas on "Ablauf" > "Quoten". Needs: quota_report, survey, icon. #}
+{% from "_icons.html" import icon %}
+<section class="panel"><details class="res-fold" open>
+  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Quoten", "Quotas") }} <span class="hint">{{ de_en("Soll und Ist", "target and actual") }}</span></h2></summary>
+  {% with summary_report=quota_report, summary_rule=de_en("Alle echten Teilnahmen, unabhängig von der Auswahl oben; was die Qualitätssicherung markiert, zählt nicht zum Ist.", "All real participations, whatever is chosen above; what quality assurance marks does not count towards the actual.") %}{% include "surveys/_quota_summary.html" %}{% endwith %}
+  <details class="quota-results-table"><summary>{{ de_en("Teilquoten im Einzelnen", "Sub-quotas in detail") }}</summary>
+  {% for entry in quota_report %}
+  {% set qc = entry.sum.marked %}
+  <h3 class="quota-state-name">{{ entry.quota.name }} <span class="hint">{{ de_en("zählt sofort an der Quotenberechnung", "counts at once at the quota calculation") if entry.quota.count_at == "check" else de_en("zählt bei Abschluss, {mode}", "counts on completion, {mode}", mode=entry.mode) }}</span></h3>
+  <div class="res-scroll"><table class="quota-table quota-results">
+    <thead><tr><th>{{ de_en("Teilquote", "Sub-quota") }}</th><th>{{ de_en("Bedingungen", "Conditions") }}</th><th class="num">{{ de_en("Soll", "Target") }}</th><th class="num">{{ de_en("Ist", "Actual") }}</th><th class="num">{{ de_en("offen", "open") }}</th><th class="num" title="{{ de_en('Ist in Prozent des Solls', 'actual in per cent of the target') }}">{{ de_en("erfüllt", "met") }}</th><th class="num" title="{{ de_en('wegen voller Teilquote abgewiesen', 'turned away because the sub-quota was full') }}">{{ de_en("abgewiesen", "turned away") }}</th>{% if qc %}<th class="num" title="{{ de_en('abgeschlossen, aber von der Qualitätssicherung markiert: nicht im Ist', 'completed, but marked by quality assurance: not in the actual') }}">{{ de_en("markiert", "marked") }}</th>{% endif %}</tr></thead>
+    <tbody>
+      {% for c in entry.cells %}
+      <tr><td>{{ c.name }}</td><td class="small muted">{{ c.conds }}</td><td class="num">{{ c.target }}</td><td class="num"><strong>{{ c.done }}</strong></td><td class="num">{{ c.open }}</td>
+        <td class="num">{{ (c.done / c.target)|percent if c.target else "–" }}</td><td class="num">{{ c.refused }}</td>{% if qc %}<td class="num">{{ c.marked }}</td>{% endif %}</tr>
+      {% endfor %}
+      <tr class="quota-sum"><td>{{ de_en("Summe", "Total") }}</td><td></td><td class="num">{{ entry.sum.target }}</td><td class="num"><strong>{{ entry.sum.done }}</strong></td><td class="num">{{ entry.sum.open }}</td>
+        <td class="num">{{ ((entry.sum.done / entry.sum.target)|percent) if entry.sum.target else "–" }}</td><td class="num">{{ entry.sum.refused }}</td>{% if qc %}<td class="num">{{ entry.sum.marked }}</td>{% endif %}</tr>
+    </tbody>
+  </table></div>
+  {% endfor %}
+  {% set freed = quota_report|sum(attribute="sum.freed") %}
+  {% if freed %}<p class="muted small">{{ de_en("Unter „markiert“ sind {n} Teilnahmen, die beim Abschluss markiert wurden und ihren Quotenplatz wieder freigegeben haben (Einstellung auf der Seite", "Under “marked” are {n} participations that were marked on completion and gave their quota place back (setting on the page", n=freed) }} <a href="{{ url_for('flow_page.quotas', survey_id=survey.id) }}#quota-marked">{{ de_en("Quoten", "Quotas") }}</a>){{ de_en("; die übrigen Markierten füllten ihren Platz und sind nur hier vom Ist abgezogen.", "; the other marked ones filled their place and are only taken off the actual here.") }}</p>{% endif %}
+  <p class="muted small">{{ de_en("Stand jetzt; den laufenden Füllstand, die Zahlen je Panelanbieter und die Steuerung gibt es unter „Ablauf“ →", "As of now; the running fill level, the numbers per panel provider and the steering are under “Flow” →") }} <a href="{{ url_for('flow_page.quotas', survey_id=survey.id) }}#quotas">{{ de_en("Quoten", "Quotas") }}</a>.</p>
+  </details>
+</details></section>

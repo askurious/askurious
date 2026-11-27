@@ -5162,6 +5162,16 @@ textarea[name="research_question"] { field-sizing: content; min-height: 4.6em; }
 .analysis-name { flex: 1 1 320px; min-width: 0; }
 .analysis-badges { display: inline-flex; flex-wrap: wrap; gap: 6px; }
 .analysis-summary .form-actions { align-items: center; }
+/* Ergebnisse, "Grundlage und Ansicht" (stage 3): the data pool in a dialog, "Nur diese Ansicht" compact with its
+   selection fields side by side (one below the other on a narrow window, as before) */
+.res-pool-open { margin-left: 6px; vertical-align: 2px; }
+.res-basis .res-view { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px 28px; }
+.res-basis .res-view > label.check, .res-basis .res-view > .res-only-groups, .res-basis .res-view > .res-only-hint, .res-basis .res-view > p { flex: 1 1 100%; }
+.res-basis .res-view-row { flex: 0 1 auto; }
+.res-basis .res-view-row > .label-title { flex: 0 0 auto; }
+.res-basis .res-view-row > select { flex: 0 1 300px; }
+.res-basis .res-view .res-only-groups, .res-basis .res-view .res-only-hint { margin: -4px 0 0; }
+@media (max-width: 720px) { .res-basis .res-view { flex-direction: column; align-items: stretch; } .res-basis .res-view-row > select { flex-basis: auto; } }
 .lc-taken { margin-left: 10px; font-size: 0.85rem; }
 /* overview of a matrix or loop (V55): one stacked 100-% row per statement or pass */
 /* group comparison of a nominal question: per answer one bar per group (Ralf, 2026-10-06) */

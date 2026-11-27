@@ -26,8 +26,11 @@ def test_s6_one_panel_with_two_zones_and_one_form_for_the_view(app, client, surv
     # the state in one sentence, then what is saved and what is only this view, apart
     assert "Grundlage und Ansicht" in panel and 'id="basis-line"' in panel
     assert re.search(r"ungewichtet\s+· keine Gruppen", panel)
-    assert panel.index("Gespeichert für die Befragung") < panel.index("Nur diese Ansicht")
-    saved = panel[panel.index("Gespeichert für die Befragung"):panel.index("Nur diese Ansicht")]
+    # what is saved for the survey stands in a dialog opened from the line of the basis (stage 3 of the restructuring)
+    assert 'data-dialog-open="pool-dialog"' in panel[panel.index('id="basis-line"'):panel.index("Nur diese Ansicht")]
+    assert panel.index("Nur diese Ansicht") < panel.index('id="pool-dialog"')
+    saved = panel[panel.index('id="pool-dialog"'):]
+    assert "Gespeichert für die Befragung" in saved
     assert 'id="pool-form"' in saved and "Markierte Teilnahmen" in saved and "Gewichtung" in saved
     view = panel[panel.index('id="view-form"'):]
     view = view[:view.index("</form>")]

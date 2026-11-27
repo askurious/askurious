@@ -290,6 +290,9 @@ def page_tree(survey):
     from app.surveys import results as page
 
     try:
+        from flask import g
+
+        g.results_report = True  # the page as the report takes it: with the quotas, which people see under "Ablauf"
         view = inspect.unwrap(page.results)
         out = view(survey.id)
         html = out.get_data(as_text=True) if hasattr(out, "get_data") else str(out)

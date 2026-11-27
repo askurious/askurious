@@ -7,7 +7,11 @@ Diese Seite beschreibt die Ergebnisse, die Dashboards und den Export.
 ![Ergebnisse je Hypothese: Test, Ergebnis, Satz für den Bericht und was der Test hätte finden können](img/results-hypotheses.jpg)
 
 **Was es ist.**
-Die Ergebnisse auf der oben gewählten Grundlage, laufend aktuell, während Daten eingehen:
+Die Ergebnisse auf der oben gewählten Grundlage, laufend aktuell, während Daten eingehen.
+Oben steht **Grundlage und Ansicht**: eine Zeile nennt, worauf die Zahlen beruhen; der Knopf „Datenpool …“ öffnet in einem Dialog, was für die Befragung gespeichert ist (Datenquellen, markierte Teilnahmen, Gewichtung), und die Seite rechnet nach dem Schließen neu. „Nur diese Ansicht“ darunter ändert nur diese Seite: Markierte einbeziehen, gewichtet, nach Gruppen aufteilen, nur zeigen.
+Die Reihenfolge darunter ist fest: Ergebnisse je Hypothese, Analysen, Skalen im Überblick, Skalen nach Gruppen, dann die Fragen (anfangs aufgeklappt). Quoten mit Soll und Ist stehen unter „Ablauf“ › „Quoten“, nicht mehr hier; der PDF-Ergebnisbericht enthält sie weiter.
+
+Im Einzelnen:
 
 - **Ergebnisse je Hypothese** aus dem Studienplan: der Test und warum er gewählt wurde, gestützt oder nicht, der Satz für den Bericht im APA-Stil und **was der Test hätte finden können** mit dem tatsächlichen n (eine Sensitivitätsanalyse), damit „nicht gestützt“ nicht als „kein Effekt“ gelesen wird, wenn die Stichprobe zu klein war.
 - **Je Element**: n, M, SD, Median, Konfidenzintervalle, Verteilungen; bei Skalen Cronbachs α und McDonalds ω mit Intervallen sowie eine Itemanalyse.

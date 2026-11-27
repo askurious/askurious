@@ -146,7 +146,9 @@ def test_w110_quota_conditions_on_the_results_page_in_english(app, client, surve
 
     quota_survey(app, client)
     english(client)
-    page = client.get("/surveys/1/results").data.decode()
+    from tests.helpers.report_page import report_page
+
+    page = report_page(app)  # the quota table stands in the page the PDF report reads
     table = page.split('class="quota-table quota-results"', 1)[1].split("</table>", 1)[0]
     assert "%" in table and " %" not in table                                          # one way to write per cent per language
     with app.test_request_context(**EN):

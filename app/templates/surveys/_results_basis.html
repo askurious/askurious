@@ -31,7 +31,9 @@
     {%- if r.diary %} · {{ de_en("{p} Personen, {e} Einträge", "{p} people, {e} entries", p=r.diary.persons|thousands, e=r.diary.entries|thousands) }}{% endif %}
     {%- if not outside %} · {% if r.diary and r.diary.by_person %}<span title="{{ de_en('Tagebuchstudie: Jede Person zählt je Kennwert gleich, auch bei teilweise beantworteten Matrizen. Konfidenzintervalle berücksichtigen wiederholte Messungen. Skalenkennwerte und Korrelationen zwischen Personen beruhen auf Personenmittelwerten; für Mehrebenenmodelle den Export (Spalte „person“) nutzen.', 'Diary survey: each person counts equally per statistic, also for partly answered matrices. Confidence intervals account for repeated measurements. Scale statistics and between-person correlations use person means; for multilevel models use the export (column “person”).') }}">{{ de_en("jede Person gleich gewichtet", "every person weighted equally") }}</span>{% else %}{{ de_en("gewichtet", "weighted") if f.weighted and r.weighting else de_en("ungewichtet", "unweighted") }}{% endif %}{% endif %}
     {%- if cmp %} · {{ de_en("nach Gruppen von {code}", "by groups of {code}", code=cmp.code) }}{% elif not outside %} · {{ de_en("keine Gruppen", "no groups") }}{% endif %}
-    {%- if only %} · <span class="badge res-filtered">{{ de_en("nur", "only") }} {{ only.title|truncate(40) }} = {{ shown_groups }}</span>{% endif %}</p>
+    {%- if only %} · <span class="badge res-filtered">{{ de_en("nur", "only") }} {{ only.title|truncate(40) }} = {{ shown_groups }}</span>{% endif %}
+    {#- the saved data pool in its dialog (restructuring of the results part, stage 3, E5) #}
+    {%- if stored %} <button type="button" class="button button-secondary button-small res-pool-open" data-dialog-open="pool-dialog" aria-haspopup="dialog">{{ de_en("Datenpool …", "Data pool …") }}</button>{% endif %}</p>
   {% if not outside %}<p class="muted small res-state-more">{{ de_en("Datenpool", "Data pool") }}: {% for s in f.sources %}{{ source_names[s]|after_colon if loop.first else source_names[s] }}{{ ", " if not loop.last }}{% endfor %}{% if f.all %}{{ de_en(", auch abgebrochene", ", also broken-off ones") }}{% endif %}
     {%- if board_tests %} · {{ de_en("Die Dashboards lassen die {n} Testdurchläufe weg, ihre Zahlen weichen daher ab", "The dashboards leave out the {n} test runs, so their figures differ", n=board_tests) if board_tests > 1 else de_en("Die Dashboards lassen den Testdurchlauf weg, ihre Zahlen weichen daher ab", "The dashboards leave out the test run, so their figures differ") }}{% endif %}
     {%- if computed_at %} · <span title="{{ de_en('Neu berechnet wird von selbst, sobald neue Teilnahmen in den Datenpool kommen oder sich Datenpool, Qualitätssicherung oder Fragebogen ändern.', 'The results are recomputed automatically as soon as new participations come into the data pool or the data pool, quality assurance or questionnaire change.') }}">{% if from_store %}{{ de_en("Datengrundlage unverändert, berechnet am", "Data unchanged, computed on") }} {{ computed_at|localdt }}{% else %}{{ de_en("eben neu berechnet", "just computed") }}{% endif %}</span>{% endif %}</p>{% endif %}
@@ -51,12 +53,6 @@
         {% if pool_frozen and survey.can(current_user, "editor") %}<p class="muted small">{{ pool_frozen_note }}</p>{% endif %}
         {% if can_edit %}{{ autosave_bar(small=true) }}{% endif %}
       </form>
-    </div>
-    {% endif %}
-    {% if stored %}
-    <div class="basis-zone">
-      <h3 class="basis-zone-head">{{ de_en("Gespeichert für die Befragung", "Saved for the survey") }} <span class="hint">{{ de_en("gilt für Qualitätssicherung, Ergebnisse und Dashboards und ist die Vorauswahl beim Export; in Klammern: abgeschlossene Teilnahmen je Quelle", "applies to quality assurance, results and dashboards and is the preselection for the export; in brackets: completed participations per source") }}</span></h3>
-      {% include "surveys/_basis_stored.html" %}
     </div>
     {% endif %}
     {% if not outside or group_choices %}
@@ -134,6 +130,17 @@
   {% endif %}
   {% if r.versions|length > 1 %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ de_en("Die Teilnahmen stammen aus {n} Fragebogen-Fassungen ({names}). Alle sind hier mit der aktuellen Fassung ausgewertet; wurden Antwortcodes, Stufen oder Umpolungen geändert, passen ältere Antworten nicht dazu. Zum Trennen im Export nach", "The participations come from {n} questionnaire revisions ({names}). All are analysed here with the current revision; if answer codes, levels or reversals were changed, older answers do not fit it. To separate them, filter the export by", n=r.versions|length, names=r.versions|join(", ")) }} <code>qversion</code>{{ de_en(" filtern.", ".") }}</span></p>{% endif %}
   {% include "surveys/_compare_pick.html" %}
+  {% if stored %}
+  {# what is saved for the survey (data pool, marked participations, weighting): in a dialog, opened from the line of
+     the basis; it saves by itself, and the page loads anew with the saved pool when the dialog closes (app.js) #}
+  <dialog class="person-dialog xp-dialog" id="pool-dialog" aria-labelledby="pool-dialog-title">
+    <div class="xp-dialog-head"><h2 id="pool-dialog-title">{{ de_en("Datenpool", "Data pool") }}</h2>
+      <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
+    <p class="muted small">{{ de_en("Gespeichert für die Befragung: gilt für Qualitätssicherung, Ergebnisse und Dashboards und ist die Vorauswahl beim Export; in Klammern: abgeschlossene Teilnahmen je Quelle.", "Saved for the survey: applies to quality assurance, results and dashboards and is the preselection for the export; in brackets: completed participations per source.") }}</p>
+    {% include "surveys/_basis_stored.html" %}
+    <div class="form-actions"><button type="button" class="button button-small" data-dialog-close>{{ de_en("Fertig", "Done") }}</button></div>
+  </dialog>
+  {% endif %}
 </section>
 {# "Alle zuklappen" at the start of the sections it folds (W73), not above the state of the data #}
 {# one button that opens or closes all: "zuklappen" while all items are open (as at the start), else "aufklappen" (U10) #}
