@@ -188,8 +188,8 @@ def roles():
                        "and delete accounts, change their home organisation (whose admins then manage them) and delete "
                        "surveys platform-wide; this concept.")},
         {"who": de_en("Forschende (Konto)", "Researcher (account)"),
-         "how": de_en("Anmeldung mit ORCID oder E-Mail und Passwort; Stufe je Befragungsart je Konto",
-                      "sign-in with ORCID or email and password; level per survey type per account"),
+         "how": de_en("Anmeldung mit ORCID, mit E-Mail und Passwort oder mit Passkey; Stufe je Befragungsart je Konto",
+                      "sign-in with ORCID, with email and password or with a passkey; level per survey type per account"),
          "sees": de_en("Eigene Befragungen und solche, an denen sie beteiligt sind.",
                        "Their own surveys and those they take part in.")},
         {"who": de_en("Beteiligte mit Rolle „Verwalten“", "Member with role “Manage”"),
@@ -1349,8 +1349,10 @@ def measures():
         totp = de_en("Admins: ORCID-Anmeldung oder Passwort mit Authenticator-Code; nach ORCID ist kein zusätzlicher "
                      "App-Code verpflichtend.", "Admins: ORCID sign-in or a password with an authenticator code; an "
                      "ORCID sign-in does not require an additional app code.")
-    totp += " " + de_en("Eine Anmeldung mit Passkey zählt wie Passwort mit Code und braucht keinen weiteren Code.",
-                        "A sign-in with a passkey counts like password and code and needs no further code.")
+    totp += " " + de_en("Eine Anmeldung mit Passkey zählt wie Passwort mit Code und braucht keinen weiteren Code; wo der "
+                        "Code verlangt wird, kann ein Konto mit Passkey stattdessen mit ihm bestätigen.",
+                        "A sign-in with a passkey counts like password and code and needs no further code; where the "
+                        "code is asked for, an account with a passkey can confirm with it instead.")
     totp += " " + de_en("Für andere Konten ist 2FA freiwillig; ein eingerichteter Faktor wird bei Passwortanmeldung und Passwort-Reset abgefragt. Passwortwechsel, Kontosperre und Überall abmelden widerrufen Datenzugänge und offene Einladungs-/Beitrittslinks und trennen Zenodo, Coscine und den eigenen KI-Zugang; ein erstes Passwort widerruft nichts. Die Sperre nach 100 Fehlversuchen in Folge hält einen Browser nicht auf, in dem sich das Konto mit seinem aktuellen Passwort schon angemeldet hat (signiertes Cookie, 90 Tage).",
                          "For other accounts, 2FA is optional; an enabled factor is required at password sign-in and password reset. Password changes, account blocks and signing out everywhere revoke data access tokens and pending invitations/join links and disconnect Zenodo, Coscine and the own AI access; a first password revokes nothing. The lock after 100 wrong attempts in a row does not hold a browser in which the account signed in with its current password before (signed cookie, 90 days).")
     return [
@@ -1394,7 +1396,13 @@ def measures():
                    "höchstens 10 je Konto. Hinzufügen nur mit aktuellem Passwort (und Code, wenn eingerichtet) oder frischer "
                    "Anmeldung; Hinzufügen und Entfernen im Sicherheitsprotokoll und per E-Mail an die Person. Eine "
                    "Kontosperre sperrt auch diesen Weg; Admins können alle Passkeys eines Kontos entfernen. Nach dem "
-                   "Zurückspielen eines Dumps werden seither entfernte Passkeys wieder gelöscht",
+                   "Zurückspielen eines Dumps werden seither entfernte Passkeys wieder gelöscht. Ein Passkey dient auch als "
+                   "Nachweis des angemeldeten Kontos, wo sonst das aktuelle Passwort, ein Code oder eine frische Anmeldung "
+                   "verlangt wird (Konto löschen, ORCID verbinden oder trennen, Passwort entfernen, weiterer Passkey, Code "
+                   "vor der Administration, Aktionen mit frischer Anmeldung): nur ein Passkey genau dieses Kontos, "
+                   "Nutzerprüfung erzwungen, Einmalwert an den Zweck gebunden (5 Minuten, einmal gültig), Fehlversuche "
+                   "zählen zur Grenze je Netzwerk, Erfolg und Fehlversuch im Sicherheitsprotokoll; ein Passwort lässt sich "
+                   "damit weder setzen noch ändern",
                    "Passkeys (WebAuthn) as a third way to sign in besides ORCID and password, voluntary and always in "
                    "addition to one of the two: the server holds the public key only; the device verifies the person "
                    "(fingerprint, face recognition, device PIN or a security key, user verification required), so the "
@@ -1404,7 +1412,13 @@ def measures():
                    "only with the current password (and a code where set up) or a fresh sign-in; adding and removing in "
                    "the security log and by email to the person. Blocking an account blocks this way too; admins can "
                    "remove all passkeys of an account. After a dump is played back, passkeys removed since are deleted "
-                   "again"),
+                   "again. A passkey also serves as proof of the signed-in account where otherwise the current "
+                   "password, a code or a fresh sign-in is asked for (deleting the account, connecting or disconnecting "
+                   "ORCID, removing the password, a further passkey, the code before the administration, actions that "
+                   "need a fresh sign-in): only a passkey of exactly this account, user verification required, the "
+                   "one-time value bound to its purpose (5 minutes, valid once), failed tries count toward the limit "
+                   "per network, success and failure in the security log; a password can neither be set nor changed "
+                   "with it"),
              "app/passkeys.py, app/static/passkey.js, deploy/docker/reapply_erasures.py"),
             (de_en("Aktionen, die Zugänge vergeben oder entziehen, verlangen eine Anmeldung von höchstens 15 Minuten; eine "
                    "ORCID-Anmeldung zählt nur, wenn ORCID dabei das Passwort abgefragt hat (auth_time im ID-Token, dessen "
@@ -2398,9 +2412,10 @@ def controls():
          de_en("Nicht im Code: Feld „Serverstandort und physische Sicherung“ in Abschnitt 1",
                "Not in the code: field “Server site and physical protection” in section 1")),
         (de_en("Zugangskontrolle", "System access control"), "lit. b",
-         de_en("Anmeldung mit ORCID oder Passwort (scrypt-Hash, Sperrliste, Pause und Sperre nach Fehlversuchen); zweiter "
-               "Faktor für Admins; Sitzungs-Cookies Secure, HttpOnly, __Host-", "Sign-in with ORCID or a password (scrypt "
-               "hash, block list, pause and lock after failed attempts); second factor for admins; session cookies "
+         de_en("Anmeldung mit ORCID, mit Passwort (scrypt-Hash, Sperrliste, Pause und Sperre nach Fehlversuchen) oder mit "
+               "Passkey (Nutzerprüfung am Gerät); zweiter Faktor für Admins; Sitzungs-Cookies Secure, HttpOnly, __Host-",
+               "Sign-in with ORCID, with a password (scrypt hash, block list, pause and lock after failed attempts) or "
+               "with a passkey (user verification on the device); second factor for admins; session cookies "
                "Secure, HttpOnly, __Host-")),
         (de_en("Zugriffskontrolle", "Data access control"), "lit. b",
          de_en("Rollen je Befragung (Ansehen, Bearbeiten, Verwalten), Rohdaten nur mit Bearbeiten oder Verwalten; "

@@ -524,6 +524,7 @@ def create_app(config_class=Config, server=False):
     from app import passkeys
 
     app.register_blueprint(passkeys.bp)  # signing in with a passkey (WebAuthn), a third way besides ORCID and password
+    app.jinja_env.globals.update(passkey_offered=passkeys.offered)  # pages offer "Mit Passkey bestätigen"
     from app import invites
 
     app.register_blueprint(invites.bp)  # invitations by e-mail address (mail on only)

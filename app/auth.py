@@ -321,6 +321,8 @@ def remember(user, fresh=True, keep_age=False, via=None):
     if not keep:
         session["_remember"] = "clear"
     session.permanent = keep
+    if via is not None or fresh:
+        session.pop("fresh_by", None)  # what a passkey proof noted about an earlier sign-in (passkeys.FRESH_BY)
     if fresh:
         session["signed_in_at"] = time.time()
 
@@ -761,6 +763,13 @@ def _link_refused(user):
     from app import accounts, passwords, twofactor
 
     back = redirect(url_for("accounts.index") + "#anmeldung")
+    if request.form.get("passkey_proof"):
+        from app import passkeys
+
+        if passkeys.proved("orcid_link", user):
+            return None  # confirmed with a passkey of the account: it stands for the password and the code
+        flash(de_en(*accounts.PROOF_GONE), "error")
+        return back
     if passwords.has_password(user):
         if not passwords.confirm(user, request.form.get("current", "")):
             ended = accounts._too_many_wrong(user)

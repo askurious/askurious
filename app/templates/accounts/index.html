@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {# the registration number only for the first twelve accounts, behind the ORCID iD (Philipp, 2026-10-13); called
    "Kontonummer", not "Karteikartennummer" (UI/UX audit 2026-10-16, 22) #}
-{% from "_macros.html" import autosave_bar, csrf, orcid_icon, orcid_link, list_table %}
+{% from "_macros.html" import autosave_bar, csrf, orcid_icon, orcid_link, list_table, passkey_confirm %}
 {% from "_icons.html" import icon %}
 {# The page "Profil und Anmeldung", the first of the account pages (accounts.index). Needs: login (UserLogin or None),
    has_password, config_admin, fresh, minutes, min_length, my_period, my_supervisors, my_contact, supervised, totp,
@@ -106,6 +106,7 @@
       <input type="password" name="current" autocomplete="current-password" required></label>{% endif %}
     {% if totp %}<label>{{ de_en("Code aus der Authenticator-App oder Ersatzcode", "Code from the authenticator app or a backup code") }}
       <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required></label>{% endif %}
+    {% if passkey_offered() %}<div class="button-row">{{ passkey_confirm("orcid_link") }}</div>{% endif %}
     <div class="button-row"><button class="button button-secondary">{{ orcid_icon() }}{{ de_en("Mit ORCID verbinden", "Connect with ORCID") }}</button></div>
   </form>
   {% elif has_password and not config_admin %}
@@ -116,6 +117,7 @@
     <input type="email" name="username" value="{{ login.email }}" autocomplete="username" readonly hidden>
     <label>{{ de_en("Aktuelles Passwort", "Current password") }}
       <input type="password" name="current" autocomplete="current-password" required></label>
+    {% if passkey_offered() %}<div class="button-row">{{ passkey_confirm("orcid_remove") }}</div>{% endif %}
     <div class="button-row"><button class="button button-danger">{{ de_en("Trennen", "Disconnect") }}</button></div>
   </form>
   <p class="muted small">{{ de_en("Befragungen, Gruppen und Freigaben bleiben. Sie stehen danach ohne ORCID-Symbol in den Listen der Beteiligten, und bei Zenodo steht keine iD mehr bei Ihrem Namen. Verbinden können Sie wieder, auch mit einer anderen iD.",
@@ -162,7 +164,7 @@
   {% endif %}
   {% if login.email and not login.email_verified_at %}
   <p>{{ de_en("Diese bestehende Anmeldeadresse wurde noch nicht per E-Mail bestätigt.", "This existing sign-in address has not yet been confirmed by email.") }}</p>
-  {% if mail_enabled() and fresh %}<form method="post" action="{{ url_for('accounts.verify_email') }}">{{ csrf() }}<button class="button button-secondary">{{ de_en("Anmeldeadresse bestätigen", "Confirm sign-in address") }}</button></form>{% endif %}
+  {% if mail_enabled() and password_fresh %}<form method="post" action="{{ url_for('accounts.verify_email') }}">{{ csrf() }}<button class="button button-secondary">{{ de_en("Anmeldeadresse bestätigen", "Confirm sign-in address") }}</button></form>{% endif %}
   {% endif %}
   {% if current_user.has_orcid %}
   <h3>{{ de_en("E-Mail-Adresse und Passwort entfernen", "Remove email address and password") }}</h3>
@@ -171,6 +173,7 @@
     <input type="email" name="username" value="{{ login.email }}" autocomplete="username" readonly hidden>
     <label>{{ de_en("Aktuelles Passwort", "Current password") }}
       <input type="password" name="current" autocomplete="current-password" required></label>
+    {% if passkey_offered() %}<div class="button-row">{{ passkey_confirm("password_remove") }}</div>{% endif %}
     <div class="button-row"><button class="button button-danger">{{ de_en("Entfernen", "Remove") }}</button></div>
   </form>
   <p class="muted small">{{ de_en("Danach melden Sie sich nur noch mit ORCID an. Die Adresse wird mit entfernt; E-Mails von Askurious gehen dann nicht mehr an sie. Alle anderen Sitzungen dieses Kontos enden.",
@@ -178,7 +181,8 @@
   {% endif %}
   {% else %}
   <h3>{{ de_en("E-Mail-Adresse und Passwort hinterlegen", "Add email address and password") }} <span class="hint">{{ de_en("zusätzlich zu ORCID, wenn Sie möchten", "in addition to ORCID, if you like") }}</span></h3>
-  {% if not fresh %}
+  {# a passkey never makes a password: here only a fresh sign-in with ORCID counts (accounts.fresh_for_password) #}
+  {% if not password_fresh %}
   <p class="muted">{{ de_en("Dafür muss die Anmeldung frisch sein (höchstens {n} Minuten alt), damit niemand an einem offen gelassenen Rechner
     einen zweiten Zugang zu Ihrem Konto anlegt.", "For this the sign-in must be fresh (at most {n} minutes old), so that nobody at a computer left
     open adds a second way into your account.", n=minutes) }}</p>
@@ -243,7 +247,8 @@
     {# without a password the fresh sign-in is the proof, as for adding a password #}
     <p>{{ de_en("Dafür muss die Anmeldung frisch sein (höchstens {n} Minuten alt), damit niemand an einem offen gelassenen Rechner einen weiteren Zugang zu Ihrem Konto anlegt.",
       "For this the sign-in must be fresh (at most {n} minutes old), so that nobody at a computer left open adds a further way into your account.", n=minutes) }}</p>
-    <p><a class="button" href="{{ url_for('auth.login', fresh=1, next=url_for('accounts.index') + '#passkeys') }}">{{ orcid_icon() }}{{ de_en("Neu mit ORCID anmelden", "Sign in with ORCID again") }}</a></p>
+    <div class="button-row"><a class="button button-secondary" href="{{ url_for('auth.login', fresh=1, next=url_for('accounts.index') + '#passkeys') }}">{{ orcid_icon() }}{{ de_en("Neu mit ORCID anmelden", "Sign in with ORCID again") }}</a>
+      {% if passkeys %}{{ passkey_confirm("fresh", next=url_for('accounts.index') + '#passkeys') }}{% endif %}</div>
     {% else %}
     <form class="stack" autocomplete="off" data-passkey-add data-options="{{ url_for('passkeys.add_options') }}" data-verify="{{ url_for('passkeys.add') }}">
       {{ csrf() }}
@@ -254,6 +259,7 @@
         <input type="password" name="current" autocomplete="current-password" required></label>{% endif %}
       {% if totp %}<label>{{ de_en("Code aus der Authenticator-App oder Ersatzcode", "Code from the authenticator app or a backup code") }}
         <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required></label>{% endif %}
+      {% if passkeys and (has_password or totp) %}<div class="button-row">{{ passkey_confirm("add") }}</div>{% endif %}
       <p class="flash flash-error" role="alert" data-passkey-error hidden></p>
       <div class="form-actions"><button class="button">{{ de_en("Hinzufügen", "Add") }}</button>
         <button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Abbrechen", "Cancel") }}</button></div>

@@ -395,9 +395,22 @@ def via():
     return session.get(SIGNED_IN_VIA)
 
 
-def _passed():
-    """Mark this browser as having given a code, for this account and its sign-in version."""
-    session["totp_ok"] = {"user": current_user.get_id(), "at": time.time()}
+def _passed(by=None):
+    """Mark this browser as having given a code, for this account and its sign-in version. by: VIA_PASSKEY when a
+    passkey of the account confirmed in place of the code (passkeys.confirm)."""
+    session["totp_ok"] = {"user": current_user.get_id(), "at": time.time(), **({"by": by} if by else {})}
+
+
+def passkey_proved():
+    """verified() by a passkey of the account in place of the code: enough also without a factor set up."""
+    entry = session.get("totp_ok")
+    return verified() and isinstance(entry, dict) and entry.get("by") == VIA_PASSKEY
+
+
+def _passkey_offered():
+    from app import passkeys
+
+    return passkeys.offered()
 
 
 def verified():
@@ -431,6 +444,10 @@ def gate():
     if not active() and not required_at_signin(current_user) and not getattr(current_user, "is_admin", False):
         return None
     back = local_path(request.full_path.rstrip("?")) if request.method == "GET" else None
+    if passkey_proved():
+        return None  # a passkey of the account confirmed in place of the code
+    if not enabled(current_user) and _passkey_offered():
+        return redirect(url_for("twofactor.ask", next=back))  # no factor set up, but a passkey to confirm with
     if not enabled(current_user):
         flash(de_en("Für die Administration braucht Ihr Konto einen zweiten Faktor (Code aus einer Authenticator-App). "
                     "Bitte jetzt einrichten.",
@@ -449,6 +466,10 @@ def org_gate():
     if not current_user.is_authenticated or orcid_exempt() or by_passkey():
         return None
     back = local_path(request.full_path.rstrip("?")) if request.method == "GET" else None
+    if passkey_proved():
+        return None
+    if not enabled(current_user) and _passkey_offered():
+        return redirect(url_for("twofactor.ask", next=back))
     if not enabled(current_user):
         flash(de_en("Für die Verwaltung einer Organisation braucht Ihr Konto einen zweiten Faktor (Code aus einer "
                     "Authenticator-App). Bitte jetzt einrichten.",
@@ -486,7 +507,7 @@ def admin_rights(user):
         return False  # a password without a code is never enough for a site admin (T3; auth.load_user ends it too)
     if own and (orcid_exempt(user) or by_passkey()):
         return True
-    return own and enabled(user) and verified()
+    return own and (passkey_proved() or (enabled(user) and verified()))
 
 
 # --- pages -----------------------------------------------------------------------------------------------------
@@ -574,14 +595,17 @@ def ask():
     """The code before the administration."""
     _only_when_active()
     nxt = local_path(request.values.get("next", "")) or url_for("admin.surveys_page")
+    passkey = _passkey_offered()  # "Mit Passkey bestätigen" beside the code, or alone without a factor set up
     if not enabled(current_user):
-        return redirect(url_for("twofactor.setup", next=nxt))
+        if not passkey:
+            return redirect(url_for("twofactor.setup", next=nxt))
+        return render_template("accounts/twofactor_code.html", nxt=nxt, passkey=True, code=False)
     if unreadable(current_user):
         flash(de_en("Der gespeicherte zweite Faktor ist nicht mehr lesbar (der Schlüssel des Servers wurde gewechselt). "
                     "Kein Code passt mehr. Die Admins der Plattform müssen ihn zurücksetzen.",
                     "The stored second factor can no longer be read (the server's key was changed). No code fits "
                     "any more. A platform admin has to reset it."), "error")
-        return render_template("accounts/twofactor_code.html", nxt=nxt)
+        return render_template("accounts/twofactor_code.html", nxt=nxt, passkey=passkey, code=True)
     if request.method == "POST":
         backups = backup_left(current_user)
         if check_any(current_user, request.form.get("code")):
@@ -594,7 +618,7 @@ def ask():
         _event("second_factor_failed", via="administration")
         flash(de_en("Der Code stimmt nicht oder wurde schon verwendet.", "The code is not correct or was already used.")
               + too_many_said(current_user), "error")
-    return render_template("accounts/twofactor_code.html", nxt=nxt)
+    return render_template("accounts/twofactor_code.html", nxt=nxt, passkey=passkey, code=True)
 
 
 def _event(name, **fields):

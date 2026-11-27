@@ -2,13 +2,14 @@
 {# the setup assistant after the first sign-in (app/account_setup.py, konto-einrichtung-konzept.md): four steps, each
    with "Überspringen"; "Einrichtung beenden" ends it. Needs: step, steps, number, total, login, has_password, fresh,
    minutes, min_length, ui_languages, ai_access, ai_access_days, ai_mod, here. #}
-{% from "_macros.html" import autosave_bar, csrf, orcid_icon, orcid_link %}
+{% from "_macros.html" import autosave_bar, csrf, orcid_icon, orcid_link, passkey_confirm %}
 {% from "_icons.html" import icon %}
 {% set titles = {"details": de_en("Angaben und Sprache", "Details and language"),
                  "sign_in": de_en("Zweite Anmeldeart", "Second way to sign in"),
                  "ai": de_en("Eigener KI-Zugang", "Own AI access"),
                  "learning": de_en("Lernhilfen", "Learning aids")} %}
 {% block title %}{{ de_en("Konto einrichten", "Set up your account") }}{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='passkey.js') }}" defer></script>{% endblock %}
 {% block content %}
 <div class="setup">
 <h1>{{ de_en("Konto einrichten", "Set up your account") }}</h1>
@@ -60,6 +61,7 @@
       <input type="password" name="current" autocomplete="current-password" required></label>{% endif %}
     {% if totp %}<label>{{ de_en("Code aus der Authenticator-App oder Ersatzcode", "Code from the authenticator app or a backup code") }}
       <input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required></label>{% endif %}
+    {% if passkey_offered() %}<div class="button-row">{{ passkey_confirm("orcid_link") }}</div>{% endif %}
     <div class="button-row"><button class="button button-secondary">{{ orcid_icon() }}{{ de_en("Mit ORCID verbinden", "Connect with ORCID") }}</button></div>
   </form>
   {% elif not fresh %}
