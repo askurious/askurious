@@ -1,0 +1,54 @@
+{# The page of a model below "Ergebnisse" (surveys/analysis.py, stage 2 of the restructuring of the results part):
+   the structural equation model (what = "sem"), the models over the waves of a panel ("panel") or the vignettes
+   ("vignettes"). Like the page of a conjoint analysis (surveys/analysis.html): its own h1, the way back, a line on
+   the basis, flat panels, the downloads at the end. The parts are those the results page showed (surveys/_sem.html,
+   _sem_running.html, _panel_models.html, _vignette_results.html). Needs: survey, what, title, cited, back_args and
+   what the part needs. #}
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% from "_macros.html" import num %}
+{% from "_learn.html" import why, term %}
+{% from "surveys/_results_macros.html" import fn with context %}
+{% block title %}{{ title }} · {{ survey.title }}{% endblock %}
+{% block container_class %}tabpage tabpage-single{% endblock %}
+{% block content %}
+<div class="tabpage-head">{% set active_tab = "results" %}{% set sub_page = true %}{% set help_key = {"sem": "sem_analysis", "panel": "panel_analysis", "vignettes": "vignette_analysis"}[what] %}{% include "surveys/_tabs.html" %}</div><!--flashes-->
+<a class="back-link" href="{{ url_for('surveys.results', survey_id=survey.id, **back_args) }}#analyses">{{ icon("back", 16) }} {{ de_en("Ergebnisse", "Results") }}</a>
+<h1>{{ title }}</h1>
+<div class="tabpage-grid results-page analysis-page">
+<div class="analysis-state">
+  {% if what == "sem" %}
+  <p class="res-state">{{ de_en("Grundlage", "Basis") }}: {{ de_en("gespeicherter Datenpool", "saved data pool") }} · {{ de_en("ohne Markierte", "without marked participations") }} · {{ de_en("gewichtet", "weighted") if f.weighted else de_en("ungewichtet", "unweighted") }}
+    · <a href="{{ url_for('surveys.results', survey_id=survey.id, **back_args) }}#pool">{{ de_en("Datenpool und Ansicht ändern", "Change data pool and view") }}</a></p>
+  {% elif what == "panel" %}
+  <p class="res-state">{{ de_en("Grundlage", "Basis") }}: {{ de_en("alle verknüpften Personen der Wellen", "all linked people of the waves") }}</p>
+  {% else %}
+  <p class="res-state">{{ de_en("Grundlage", "Basis") }}: <strong>{{ r.n_rows|thousands }}</strong> {{ de_en("Teilnahmen", "participations") if r.n_rows != 1 else de_en("Teilnahme", "participation") }}
+    {%- if r.marked %} · {% if f.drop %}{{ de_en("ohne {n} Markierte", "without {n} marked", n=r.marked|thousands) }}{% else %}{{ de_en("mit {n} Markierten", "with {n} marked", n=r.marked|thousands) }}{% endif %}{% endif %}
+    · {{ de_en("gewichtet", "weighted") if f.weighted and r.weighting else de_en("ungewichtet", "unweighted") }}
+    · <a href="{{ url_for('surveys.results', survey_id=survey.id, **back_args) }}#pool">{{ de_en("Datenpool und Ansicht ändern", "Change data pool and view") }}</a></p>
+  {% endif %}
+</div>
+{% if what == "sem" %}
+  {% if sem %}{% include "surveys/_sem.html" %}{% else %}{% include "surveys/_sem_running.html" %}{% endif %}
+{% elif what == "panel" %}
+  {% include "surveys/_panel_models.html" %}
+{% else %}
+  {% include "surveys/_vignette_results.html" %}
+  {# the long format of each loop, as on "Export" #}
+  {% set loops = vignettes_of(survey) if survey.can(current_user, "editor") else [] %}
+  {% if loops %}
+  <section class="panel" id="vignetten-downloads">
+    <h2>{{ de_en("Herunterladen", "Download") }}</h2>
+    <p class="button-row">{% for v in loops %}<a class="button button-secondary button-small" href="{{ url_for('surveys.export_vignettes', survey_id=survey.id, nid=v.id) }}">{{ icon("download", 16) }} {{ de_en("Langformat „{name}“ (CSV)", "Long format “{name}” (CSV)", name=(v.name or v.code)) }}</a>{% endfor %}</p>
+    <p class="muted small">{{ de_en("Eine Zeile je Person und gezeigter Vignette, für Mehrebenenmodelle; alle Formate gibt es im Reiter", "One row per person and vignette shown, for multilevel models; every format is on the tab") }} <a href="{{ url_for('surveys.data', survey_id=survey.id) }}">Export</a>.</p>
+  </section>
+  {% endif %}
+{% endif %}
+{% if cited %}
+{% from "_sources.html" import grouped %}{{ grouped(cited, de_en("Literatur zu dieser Seite", "References for this page")) }}
+{% endif %}
+</div>
+<script src="{{ url_for('static', filename='figure_png.js') }}" defer></script>
+{% if what == "sem" and sem %}<script src="{{ url_for('static', filename='sem_drag.js') }}" defer></script>{% endif %}
+{% endblock %}

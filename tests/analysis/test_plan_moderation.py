@@ -75,7 +75,7 @@ def test_an_interaction_of_two_constructs(app, client, survey):
         assert 200 < study_plan.power_of(s, h)["n"] < 5000
         text = sem_model.r_script(s, "daten.rds")
         assert "indProd(daten" in text and "doubleMC = TRUE" in text and "F_tb_einst =~" in text
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
     assert "Unterstützt" in hyp and "einfache Steigungen" in hyp and "Produktindikatoren" in hyp
     part = page[page.index('id="sem"'):]
@@ -91,10 +91,10 @@ def test_pls_takes_the_interaction_in_two_stages(app, client, survey):
     _survey(app, client)
     _plan(client, "einst", method="pls")
     app.config["HB_SYNC"] = True
-    client.post("/surveys/1/results?go=1")
-    client.get("/surveys/1/results?go=1")
+    client.post("/surveys/1/results/model?go=1")
+    client.get("/surveys/1/results/model?go=1")
     client.post("/surveys/1/results/sem-bootstrap")
-    page = client.get("/surveys/1/results").data.decode()
+    page = (client.get("/surveys/1/results").data.decode() + client.get("/surveys/1/results/model").data.decode())
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
     assert "zweistufig" in hyp and "Unterstützt" in hyp
 
@@ -117,7 +117,7 @@ def test_a_moderator_with_two_groups_is_compared_in_two_groups(app, client, surv
         assert sem_model.moderation_groups(s, h) == 2
         text = sem_model.r_script(s, "daten.rds")
         assert 'group.equal = "loadings"' in text and "c(a1, b1)*F_tb" in text and "d1 := b1 - a1" in text
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
     assert "Unterstützt" in hyp and "Δb = 0," in hyp and "Moderation durch Gruppen" in hyp
 

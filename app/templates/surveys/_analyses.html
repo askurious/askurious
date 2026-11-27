@@ -1,5 +1,5 @@
 {# The section "Analysen" of the results page (restructuring of the results part, stage 1): one line per analysis
-   that has a page of its own below "Ergebnisse" (surveys/analysis.py rows()), with its state. Needs: analyses, survey. #}
+   that has a page of its own below "Ergebnisse" (surveys/analysis.py rows()), with its state. Needs: analyses, model_analyses, survey. #}
 {% from "_macros.html" import content_lang %}
 <section class="panel" id="analyses">
   <h2>{{ de_en("Analysen", "Analyses") }} <span class="hint">{{ de_en("jede auf einer eigenen Seite", "each on a page of its own") }}</span></h2>
@@ -15,6 +15,12 @@
         {% elif a.lc_running %}<span class="badge">{{ de_en("Segmente: Schätzung läuft", "Segments: estimation running") }}</span>{% endif %}
       </span>
       <a class="button button-secondary button-small" href="{{ a.url }}" data-analysis-link="{{ a.item.id }}" aria-label="{{ de_en('{name} öffnen', 'Open {name}', name=a.method ~ ' ' ~ a.item.code) }}">{{ de_en("Öffnen", "Open") }}</a></li>
+    {% endfor %}
+    {# the models with a page of their own (analysis.model_rows): structural equation model, panel models, vignettes #}
+    {% for a in model_analyses or [] %}
+    <li><span class="analysis-name"><strong>{{ a.method }}</strong>{% if a.question %} {{ a.question|truncate(90) }}{% endif %}{% if a.hint %} <span class="hint">{{ a.hint }}</span>{% endif %}</span>
+      <span class="analysis-badges">{% for text, cls in a.badges %}<span class="badge{% if cls %} {{ cls }}{% endif %}">{{ text }}</span>{% endfor %}</span>
+      <a class="button button-secondary button-small" href="{{ a.url }}" data-analysis-link="{{ a.key }}" aria-label="{{ de_en('{name} öffnen', 'Open {name}', name=a.method) }}">{{ de_en("Öffnen", "Open") }}</a></li>
     {% endfor %}
   </ul>
 </section>

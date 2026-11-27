@@ -26,7 +26,7 @@ def _places(app):
 
 def test_moving_saves_the_drawing_of_the_plan_and_is_one_step_back(app, client, survey):
     _survey(app, client, n=150)
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     part = page[page.index('id="sem"'):]
     assert "data-sem-drag" in part and "sem_drag.js" in page and 'tabindex="0"' in part
     data = json.loads(part.split("data-sem-drag-data>", 1)[1].split("</script>", 1)[0])
@@ -43,7 +43,7 @@ def test_moving_saves_the_drawing_of_the_plan_and_is_one_step_back(app, client, 
         plan = dict(db.session.get(Survey, 1).study_plan)
         assert {k: v for k, v in plan.items() if k != "layout"} == {k: v for k, v in json.loads(before).items() if k != "layout"}
     # the page draws the new arrangement, with its shift back to the places of the plan
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     data = json.loads(page.split("data-sem-drag-data>", 1)[1].split("</script>", 1)[0])
     centre = {n["code"]: [n["x"] + 100 + data["shift"][0], n["y"] + 32 + data["shift"][1]] for n in data["nodes"]}
     assert centre == moved
@@ -62,12 +62,12 @@ def test_moving_saves_the_drawing_of_the_plan_and_is_one_step_back(app, client, 
 
 def test_moving_computes_nothing_anew(app, client, survey, monkeypatch):
     _survey(app, client, n=150)
-    client.get("/surveys/1/results?go=1")
+    client.get("/surveys/1/results/model?go=1")
     calls = []
     real = sem_model.estimate
     monkeypatch.setattr(sem_model, "estimate", lambda *a, **k: calls.append(1) or real(*a, **k))
     client.post(URL, json={"nodes": {"tb": [120, 96], "einst": [440, 40], "absicht": [760, 400]}})
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     assert not calls  # the kept model, with the arrangement saved now
     data = json.loads(page.split("data-sem-drag-data>", 1)[1].split("</script>", 1)[0])
     assert data["shift"] is not None
@@ -90,7 +90,7 @@ def _member(app, role):
 def test_reading_people_see_the_picture_fixed(app, client, survey):
     _survey(app, client, n=150)
     viewer = _member(app, "viewer")
-    page = viewer.get("/surveys/1/results?go=1").data.decode()
+    page = viewer.get("/surveys/1/results/model?go=1").data.decode()
     assert 'id="sem"' in page and "Pfaddiagramm" in page and "data-sem-drag" not in page
     assert viewer.post(URL, json={"nodes": {"tb": [8, 8]}}).status_code != 200
     assert viewer.get(URL).status_code != 200 and _places(app) == {}
@@ -99,7 +99,7 @@ def test_reading_people_see_the_picture_fixed(app, client, survey):
 def test_editing_people_move_too(app, client, survey):
     _survey(app, client, n=150)
     editor = _member(app, "editor")
-    assert "data-sem-drag" in editor.get("/surveys/1/results?go=1").data.decode()
+    assert "data-sem-drag" in editor.get("/surveys/1/results/model?go=1").data.decode()
     r = editor.post(URL, json={"nodes": {"tb": [8, 8]}, "name": "TB"})
     assert r.status_code == 200 and _places(app) == {"tb": [8, 8]}
     assert editor.get(URL).json == {"nodes": {"tb": [8, 8]}}

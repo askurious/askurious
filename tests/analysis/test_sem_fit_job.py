@@ -23,7 +23,7 @@ MODEL = {"research_question": "TB", "goal": "correlation", "design": "cross",
 
 def _part(page):
     """The block of the model and the hypotheses, without the time of the computation."""
-    out = page[page.index('id="hypothesen"'):page.index("</main>") if "</main>" in page else None]
+    out = page[page.index('id="hypothesen"'):]  # the results page from the hypotheses on, then the page of the model
     out = re.sub(r"[\w-]+\.[\w-]{6}\.[\w-]{20,}", "", out)  # signed tokens carry their time
     return re.sub(r"\d{1,2}:\d{2}", "", out)
 
@@ -42,20 +42,20 @@ def _through_job(app, client, monkeypatch):
 
     monkeypatch.setattr(jobs, "start", start)
     app.config["SEM_BACKGROUND"] = True
-    running = client.get("/surveys/1/results?go=1").data.decode()
+    running = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     (paths, inp), = started
     sent = json.loads(json.dumps(inp))  # as the estimation process and the Rechenknecht get it
     result = json.loads(json.dumps(sem_fit_job.run(sent, progress=lambda share: None)))
     with app.app_context():
         maxdiff_hb._remove(paths[1])
         maxdiff_hb._write(paths[0], {**result, "pool": {}, "created": maxdiff_hb._now().isoformat()})
-    done = client.get("/surveys/1/results?go=1").data.decode()
+    done = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     return running, sent, done, paths
 
 
 def _inline(app, client):
     app.config["SEM_BACKGROUND"] = False
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     with app.app_context():
         results_store.forget_files(db.session.get(Survey, 1).uid)  # estimated anew below, as a job
     return page
@@ -80,7 +80,7 @@ def test_the_job_shows_what_the_request_showed(app, client, survey, monkeypatch)
     assert "pid" not in json.dumps(sent) and "_ids" not in json.dumps(sent) and "resp_id" not in json.dumps(sent)
     assert _part(done) == _part(before)
     assert not os.path.exists(paths[0])  # taken over into the kept results
-    assert _part(client.get("/surveys/1/results?go=1").data.decode()) == _part(before)
+    assert _part((client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())) == _part(before)
 
 
 def test_pls_scores_keep_their_participations(app, client, survey, monkeypatch):

@@ -42,14 +42,14 @@ def test_two_steps_on_the_results_page(app, client, survey, monkeypatch):
     client.post("/surveys/1/researchdesign", data=MultiDict(form))
     monkeypatch.setattr(sem_model, "BOOT_DRAWS", 150)
     app.config["HB_SYNC"] = True
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     part = page[page.index('id="sem"'):]
     one, two, measure = part.index('id="sem-step1"'), part.index('id="sem-step2"'), part.index('id="sem-measure"')
     assert one < measure < two < part.index('id="sem-diagram"')
     assert "Ladungen ab 0,70:" in part and "AVE ab 0,50:" in part and "Pfade: Bootstrap fehlt" in part
     assert "ρ<sub>A</sub>" in part and "Gesamteffekte" in part and "Dijkstra" in page
     client.post("/surveys/1/results/sem-bootstrap")
-    page = client.get("/surveys/1/results").data.decode()
+    page = client.get("/surveys/1/results/model").data.decode()
     part = page[page.index('id="sem"'):]
     assert "Pfade mit p &lt; ,05:" in part or "Pfade mit p < ,05:" in part
     assert 'title="t = ' in part

@@ -81,14 +81,14 @@ def test_choice_block_and_models(app, client, survey):
         for sid in ids:  # the choice stands in every wave, beside the list
             s = db.session.get(Survey, sid)
             assert s.waves["model"] == {"vars": ["zuf"]} and len(s.waves["waves"]) == 3
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/longitudinal?go=1").data.decode())
     assert 'id="panel"' in page and "Längsschnitt rechnen" in page
     app.config["HB_SYNC"] = True  # the job in the request; the page takes its result over
     assert client.post("/surveys/1/results/panel").status_code in (302, 303)
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/longitudinal?go=1").data.decode())
     assert "Messinvarianz über die Zeit" in page and "Wachstumskurve" in page and "Längsschnitt rechnen" not in page
     # the same block on the results page of the third wave, from its own computation
-    assert "Längsschnitt rechnen" in client.get(f"/surveys/{ids[2]}/results?go=1").data.decode()
+    assert "Längsschnitt rechnen" in client.get(f"/surveys/{ids[2]}/results/longitudinal?go=1").data.decode()
     with app.app_context():
         s = db.session.get(Survey, 1)
         user = db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X"))
@@ -122,7 +122,7 @@ def test_read_access_to_every_wave(app, client, survey):
         assert not s3.can(user, "viewer")
         found = panel_models.page(user, db.session.get(Survey, 1))
         assert found["missing"] == ["t3"]
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/longitudinal?go=1").data.decode()
     assert "Leserecht in jeder Welle" in page and "Längsschnitt rechnen" not in page
     assert client.post("/surveys/1/results/panel").status_code in (302, 303)
 
@@ -235,7 +235,7 @@ def test_hypothesis_over_time_judged_in_the_riclpm(app, client, survey):
     ids, data = _two_scales(app, client)
     page = client.get("/surveys/1/researchdesign").data.decode()
     assert 'value="lagged" selected' in page and "Wirkung über die Zeit" in page
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/longitudinal?go=1").data.decode())
     assert "Längsschnitt rechnen" in page and "Geprüft im Block „Längsschnitt über die Wellen“" in page
     for flag in ("panel_equal", "panel_latent"):
         data.add(flag, "1")
@@ -245,7 +245,7 @@ def test_hypothesis_over_time_judged_in_the_riclpm(app, client, survey):
     client.post("/surveys/1/waves", data=data)
     app.config["HB_SYNC"] = True
     assert client.post("/surveys/1/results/panel").status_code in (302, 303)
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/longitudinal?go=1").data.decode())
     assert "RI-CLPM" in page and "kreuzverzögerter Pfad β" in page and "unterstützt" in page
     with app.app_context():
         s = db.session.get(Survey, 1)
@@ -344,7 +344,7 @@ def test_models_run_as_a_job(app, client, survey, monkeypatch):
         os_path = paths[1]
         maxdiff_hb._write(os_path, {"state": "running", "started": maxdiff_hb._now().isoformat(),
                                     "beat": maxdiff_hb._now().isoformat(), "progress": 0.5, "key": inp["key"]})
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/longitudinal?go=1").data.decode()
     assert "Längsschnitt wird gerechnet" in page and "results/panel/status" in page
     assert client.get("/surveys/1/results/panel/status").get_json()["state"] == "running"
     result = panel_job.run(sent)
@@ -356,7 +356,7 @@ def test_models_run_as_a_job(app, client, survey, monkeypatch):
         direct = panel_models.compute(user, s)
     assert result["result"]["report"] == direct["report"]
     assert result["result"]["vars"][0]["growth"]["means"]["S"]["est"] == pytest.approx(direct["vars"][0]["growth"]["means"]["S"]["est"])
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/longitudinal?go=1").data.decode()
     assert "Wachstumskurve" in page and "Längsschnitt wird gerechnet" not in page
     import os
 

@@ -8,8 +8,8 @@
 {% macro interval(c) %}{% if c %}[{{ dec(c[0]) }}; {{ dec(c[1]) }}]{% else %}[–]{% endif %}{% endmacro %}
 {% macro pval(p) %}{{ p_bare(p) }}{% endmacro %}
 {% for v in r.vignettes %}
-<section class="panel res-item" id="vignetten-{{ v.code }}"><details class="res-fold" open>
-  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Vignetten „{name}“", "Vignettes “{name}”", name=v.name) }} <span class="hint">{{ de_en("Wirkung der Faktoren je Frage", "effect of the factors per question") }}</span></h2></summary>
+<section class="panel res-item" id="vignetten-{{ v.code }}">
+  <h2>{{ de_en("Vignetten „{name}“", "Vignettes “{name}”", name=v.name) }} <span class="hint">{{ de_en("Wirkung der Faktoren je Frage", "effect of the factors per question") }}</span></h2>
   {% for q in v.questions %}
   <h3>{{ q.code }} · {{ q.question|striptags|truncate(120) }} <span class="hint">{{ de_en("{n} Bewertungen von {p} Personen", "{n} ratings from {p} people", n=q.n, p=q.persons) }}</span></h3>
   {% if q.too_few %}
@@ -41,5 +41,5 @@
   {% if v.skipped %}
   <p class="muted small">{{ de_en("Nicht ausgewertet, weil nicht auf einer Skala gemessen (Antwortcodes ohne Mittelwert): {codes}.", "Not analysed because not measured on a scale (answer codes have no mean): {codes}.", codes=v.skipped|join(", ")) }}</p>
   {% endif %}
-</details></section>
+</section>
 {% endfor %}

@@ -15,7 +15,7 @@ The results of the basis chosen above, live while data come in:
 - **Split into groups**, e.g. by experimental condition; with random assignment the difference can be read as an effect.
 - **Analyses**: every question of the conjoint family is listed here with its state and opens its own page (see “Conjoint analysis” below).
 - **Choice models** (on the page of the conjoint analysis): counts, aggregate logit and hierarchical Bayes (HB) per person, importance and part-worths, willingness to pay, segments (latent class), interactions between attributes, a market simulator.
-- **Longitudinal analysis over the waves** (with linked waves): means per wave, measurement invariance over time, growth curves and the cross-lagged panel model (from three waves the RI-CLPM), computed on a button over all linked people; visible with read access to every wave.
+- **Longitudinal analysis over the waves** (with linked waves, on a page of its own): means per wave, measurement invariance over time, growth curves and the cross-lagged panel model (from three waves the RI-CLPM), computed on a button over all linked people; visible with read access to every wave.
 
 ![Scales at a glance: scale scores with α, ω and correlations](img/results-overview.jpg)
 
@@ -55,6 +55,17 @@ The page has flat sections in a fixed order, depending on what the procedure has
 
 Data pool and view apply as on the results page; the line under the heading names the basis and leads back there to change it.
 Buttons compute in place with a progress bar, the page does not load again. Addresses of the results page that used to lead to a place in the conjoint analysis are forwarded to the new page.
+
+### Models on pages of their own
+
+The **structural equation model** (without hypotheses: the measurement model of all scales), the **longitudinal analysis over the waves** and the **vignettes** each have a page of their own below “Results” too, and are lines of the section **Analyses** of the results page with their state (for example “Version 3 · current”, “running”, “not estimated yet”) and the button “Open”.
+“Results per hypothesis” stays on the results page as a short table.
+
+- **Structural equation model**: estimation and model fit, step 1 (measurement model), step 2 (structural model with the path diagram, paths, moderations, indirect effects, competing model, measurement invariance), details (versions of the model, how the estimate was computed, lavaan syntax, predictive power) and download (Word tables, construct scores). Bootstrap and estimation run in the background, the page shows the bar.
+- **Longitudinal analysis over the waves**: means per wave, measurement invariance over time, growth curves and the cross-lagged panel model; “Compute longitudinal analysis” starts the computation, the Word tables are at the end.
+- **Vignettes**: per loop and question the means per level and the regression with standard errors clustered by person; the long format as CSV at the end.
+
+Addresses of the results page that used to lead to a place in these sections (for example `#sem-versions`) are forwarded to the new page.
 
 ---
 

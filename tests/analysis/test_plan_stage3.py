@@ -66,7 +66,7 @@ def test_more_than_two_groups_explain_with_one_path_each_and_a_joint_test(app, c
         assert set(model["spec"]["paths"]) == {("fach:2", "absicht"), ("fach:3", "absicht")}
         text = sem_model.r_script(s, "d.rds")
         assert 'daten$fach_2 <- ifelse(is.na(daten$fach), NA, as.numeric(as.character(daten$fach) == "2"))' in text
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
     assert "Unterstützt" in hyp and "χ²(2) = " in hyp
 
@@ -95,7 +95,7 @@ def test_a_moderator_with_three_groups(app, client, survey):
         assert g["w"] == "fach" and g["w_nodes"] == ["fach:2", "fach:3"] and g["spec"]["paths"] == [("tb", "absicht")]
         text = sem_model.r_script(s, "d.rds")
         assert 'group.label = c("1", "2", "3")' in text and "lavTestWald(fit_h1" in text
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
     assert "Unterstützt" in hyp and "β(Jura)" in hyp and "χ²(2) = " in hyp and "gleicher Pfad in allen 3 Gruppen" in hyp
 
@@ -140,10 +140,10 @@ def test_moderated_mediation_with_its_index(app, client, survey):
         assert model["spec"]["modmed"] == [("a", "tb", "einst", "absicht", "tb×w")]
         assert model["hyps"][2]["mediation"] == 1
     app.config["HB_SYNC"] = True
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     assert "Index der moderierten Vermittlung" in page and "braucht den Bootstrap" in page
     client.post("/surveys/1/results/sem-bootstrap")
-    page = client.get("/surveys/1/results").data.decode()
+    page = (client.get("/surveys/1/results").data.decode() + client.get("/surveys/1/results/model").data.decode())
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
     assert hyp.count("Unterstützt") == 2 and "(Bootstrap)" in hyp and "bedingte indirekte Effekte" in hyp
 

@@ -56,9 +56,11 @@
   {% endif %}
   </div>
 {% endmacro %}
-<section class="panel" id="sem"><details class="res-fold" open>
-  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{% if sem.mode == "measurement" %}{{ de_en("Messmodell aller Skalen", "Measurement model of all scales") }}{% else %}{{ de_en("Strukturgleichungsmodell", "Structural equation model") }}{% endif %}
-    <span class="hint">{{ sem_model.methods()[sem.method] }}{% if sem.mode == "measurement" %} · {{ de_en("konfirmatorische Faktorenanalyse; mit Hypothesen im Studienplan (Verfahren „Strukturgleichungsmodell“) wird daraus das Strukturmodell", "confirmatory factor analysis; with hypotheses in the research plan (method “Structural equation model”) it becomes the structural model") }}{% endif %}</span></h2></summary>
+{# on its own page below "Ergebnisse" (surveys/analysis_model.html, which has the name of the model as its h1): flat
+   panels, the two steps and the downloads each a panel of their own #}
+<section class="panel" id="sem">
+  <h2>{{ de_en("Schätzung und Modellgüte", "Estimation and model fit") }}
+    <span class="hint">{{ sem_model.methods()[sem.method] }}{% if sem.mode == "measurement" %} · {{ de_en("konfirmatorische Faktorenanalyse; mit Hypothesen im Studienplan (Verfahren „Strukturgleichungsmodell“) wird daraus das Strukturmodell", "confirmatory factor analysis; with hypotheses in the research plan (method “Structural equation model”) it becomes the structural model") }}{% endif %}</span></h2>
   {% set vhead = sem_versions.page(survey) if sem.fit and not sem.error and not sem.weighted else none %}
   {% if vhead and vhead.current %}<p class="small sem-version-line">{% if vhead.exploratory %}<span class="badge">{{ de_en("Version {k} · explorativ", "Version {k} · exploratory", k=vhead.current.number) }}</span> {{ de_en("Abweichend vom Hauptmodell (Version {m}); Methodenteil und Word-Tabellen sagen das.", "Differs from the main model (version {m}); the methods draft and the Word tables say so.", m=vhead.main.number) }}{% else %}<span class="badge badge-approved">{{ de_en("Hauptmodell · Version {k}", "Main model · version {k}", k=vhead.current.number) }}</span>{% endif %} <a href="#sem-versions">{{ de_en("Versionen", "Versions") }}</a></p>{% endif %}
   {% if sem.skipped %}<p class="muted small">{{ de_en("Ohne die Subskalen mit nur einer Aussage (ein Konstrukt braucht mindestens zwei): {names}.", "Without the subscales with only one statement (a construct needs at least two): {names}.", names=sem.skipped|join(", ")) }}</p>{% endif %}
@@ -135,7 +137,8 @@
   {# the two steps of the evaluation: the measurement model first, then the structural model (two-step check
      2026-10-26, E1, E2) #}
   {% set steps = sem_model.step_checks(sem, boot) if sem.mode != "measurement" else none %}
-  {% if steps %}<h3 class="sem-step" id="sem-step1">{{ de_en("Schritt 1 · Messmodell", "Step 1 · Measurement model") }}</h3>
+  {% if steps %}</section>
+<section class="panel" id="sem-step1"><h2>{{ de_en("Schritt 1 · Messmodell", "Step 1 · Measurement model") }}</h2>
   {{ why("sem_two_steps") }}{{ checks(steps.one) }}{% endif %}
   {% for w in weak %}
   <p class="flash flash-warning small sem-weak">{{ icon("alert", 16) }} <span>{% if w.low %}{{ de_en("Messmodell von „{c}“ ungenügend (CR {cr})", "Measurement model of “{c}” insufficient (CR {cr})", c=w.label, cr=num(w.cr)) }}{% else %}{{ de_en("Messmodell von „{c}“ fraglich", "Measurement model of “{c}” questionable", c=w.label) }}{% endif %}{% if w.negative %}; {{ de_en("{codes} lädt negativ, vielleicht nicht umgepolt", "{codes} loads negatively, perhaps not reversed", codes=w.negative|join(", ")) if w.negative|length == 1 else de_en("{codes} laden negativ, vielleicht nicht umgepolt", "{codes} load negatively, perhaps not reversed", codes=w.negative|join(", ")) }}{% endif %}.{% if sem.mode != "measurement" %} {{ de_en("Pfade nur unter Vorbehalt lesen.", "Read the paths with reservation only.") }}{% endif %} <a href="#sem-measure">{{ de_en("Zum Messmodell", "To the measurement model") }}</a></span></p>
@@ -205,7 +208,8 @@
     {% endif %}
   </details>
   {% endif %}
-  {% if steps %}<h3 class="sem-step" id="sem-step2">{{ de_en("Schritt 2 · Strukturmodell", "Step 2 · Structural model") }}</h3>
+  {% if steps %}</section>
+<section class="panel" id="sem-step2"><h2>{{ de_en("Schritt 2 · Strukturmodell", "Step 2 · Structural model") }}</h2>
   {% if steps.one_warn %}<p class="flash flash-warning small">{{ icon("alert", 16) }} <span>{{ de_en("Schritt 1 hat Hinweise (⚠). Pfade auf und von den betroffenen Konstrukten erst deuten, wenn das Messmodell geklärt ist.", "Step 1 has notes (⚠). Interpret paths to and from the constructs concerned only once the measurement model is settled.") }}</span></p>{% endif %}
   {{ checks(steps.two) }}{% endif %}
   {% set d = sem_model.diagram(sem, boot) %}
@@ -381,6 +385,8 @@
   {% endif %}
   {% endif %}
   {% endif %}
+  {% if fit and not sem.error %}</section>
+<section class="panel" id="sem-details"><h2>{{ de_en("Details", "Details") }}</h2>{% endif %}
   {# the versions of the model (model versions 2026-10-26) #}
   {% set vpage = sem_versions.page(survey) if fit and not sem.error and not sem.weighted else none %}
   {% if vpage %}{% include "surveys/_sem_versions.html" %}{% endif %}
@@ -400,8 +406,6 @@
     <p class="muted small">{{ de_en("Klick auf die Syntax kopiert sie. Die Namen sind die Spalten des Exports; Wechselwirkungen, 0/1-Kodierungen und der Messfehler von Einzelfragen baut das R-Skript (Reiter „Export“) erst aus den Daten.", "A click on the syntax copies it. The names are the columns of the export; interactions, 0/1 codings and the measurement error of single questions are built from the data by the R script (tab “Export”).") }}</p>
   </details>
   {% endif %}
-  <p class="form-actions"><a class="button button-secondary button-small" href="{{ url_for('surveys.results_sem_docx', survey_id=survey.id, lang='de', **({'gewichtet': '1'} if sem.weighted else {})) }}">{{ icon("download", 16) }} {{ de_en("Word-Tabelle (Deutsch)", "Word table (German)") }}</a>
-    <a class="button button-secondary button-small" href="{{ url_for('surveys.results_sem_docx', survey_id=survey.id, lang='en', **({'gewichtet': '1'} if sem.weighted else {})) }}">{{ icon("download", 16) }} {{ de_en("Word-Tabelle (Englisch)", "Word table (English)") }}</a></p>
   {% endif %}
   {% set pred = sem_model.predict_table(sem) %}
   {% if pred %}
@@ -413,8 +417,13 @@
     <p class="muted small">{{ de_en("Jede Aussage der erklärten Konstrukte wird in {k} Durchgängen aus den anderen Fällen vorhergesagt, nur aus den Konstrukten am Anfang der Pfade. Q²_predict über 0: besser als der Mittelwert. Vorhersagekraft hoch, wenn bei allen Aussagen der Fehler (RMSE) des PLS-Modells kleiner ist als der eines linearen Modells aus allen Aussagen dieser Konstrukte (fett), mittel bei der Mehrheit, gering bei einer Minderheit", "Each statement of the explained constructs is predicted in {k} rounds from the other cases, only from the constructs at the start of the paths. Q²_predict above 0: better than the mean. Predictive power high when for all statements the error (RMSE) of the PLS model is smaller than that of a linear model from all statements of those constructs (bold), medium for the majority, low for a minority", k=pred.folds) }} {{ apa.cite([S.SHMUELI]) }}.</p>
   </details>
   {% endif %}
+  {% if fit and not sem.error %}</section>
+<section class="panel" id="sem-downloads"><h2>{{ de_en("Herunterladen", "Download") }}</h2>
+  <p class="form-actions"><a class="button button-secondary button-small" href="{{ url_for('surveys.results_sem_docx', survey_id=survey.id, lang='de', **({'gewichtet': '1'} if sem.weighted else {})) }}">{{ icon("download", 16) }} {{ de_en("Word-Tabelle (Deutsch)", "Word table (German)") }}</a>
+    <a class="button button-secondary button-small" href="{{ url_for('surveys.results_sem_docx', survey_id=survey.id, lang='en', **({'gewichtet': '1'} if sem.weighted else {})) }}">{{ icon("download", 16) }} {{ de_en("Word-Tabelle (Englisch)", "Word table (English)") }}</a></p>
   {% if sem.scores and survey.can(current_user, "editor") %}
   <p class="small"><a href="{{ url_for('surveys.export_sem_scores', survey_id=survey.id) }}">{{ icon("download", 14) }} {{ de_en("Konstruktwerte herunterladen (CSV)", "Download construct scores (CSV)") }}</a> <span class="hint">{{ term("construct_score", de_en("je Teilnahme, verknüpfbar über resp_id", "per participation, linked by resp_id")) }}</span></p>
   {% endif %}
   {% endif %}
-</details></section>
+  {% endif %}
+</section>

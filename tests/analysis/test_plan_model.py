@@ -107,7 +107,7 @@ def test_a_relationship_in_the_model_is_a_covariance_with_its_verdict(app, clien
         assert "F_einst ~~ F_absicht" in text
     md = client.get("/surveys/1/export/methods-section.md").data.decode()
     assert "Kovarianz der Residuen" in md
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
     assert hyp.count("Unterstützt") == 3 and "r = 0," in hyp and "Korrelation der Residuen" in hyp
     part = page[page.index('id="sem"'):]

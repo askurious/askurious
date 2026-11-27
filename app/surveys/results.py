@@ -345,6 +345,8 @@ def results(survey_id):
                                # the analyses with a page of their own (surveys/analysis.py); not for one run of a
                                # live vote or a filtered view, whose estimates are left out
                                analyses=[] if run or only is not None else analysis.rows(survey, data),
+                               model_analyses=analysis.model_rows(survey, data, sem_result, g.get("sem_job"),
+                                                                  longitudinal),
                                analysis_args=analysis.pool_args())
     finally:
         progress.clear(token, current_user.id)
@@ -515,7 +517,7 @@ def results_sem_version(survey_id):
 
     survey = get_survey(survey_id, need="editor")
     action = request.form.get("action", "")
-    back = url_for("surveys.results", survey_id=survey.id) + "#sem-versions"
+    back = url_for("surveys.results_model", survey_id=survey.id) + "#sem-versions"
     version = None
     if request.form.get("version", "").isdigit():
         version = db.session.get(SemVersion, int(request.form["version"]))
@@ -587,7 +589,7 @@ def results_sem_bootstrap(survey_id):
         flash(de_en("Der Bootstrap läuft bereits.", "The bootstrap is already running."), "info")
     elif state == "nodata":
         flash(de_en("Für den Bootstrap fehlt ein geschätztes Modell.", "The bootstrap needs an estimated model."), "error")
-    return redirect(url_for("surveys.results", survey_id=survey.id, **({"gewichtet": "1"} if f.get("weighted") else {}))
+    return redirect(url_for("surveys.results_model", survey_id=survey.id, **({"gewichtet": "1"} if f.get("weighted") else {}))
                     + "#sem")
 
 
@@ -608,11 +610,11 @@ def results_panel(survey_id):
                     "Größe (Seite „Studienplan“, Abschnitt „Wellen“).",
                     "The longitudinal analysis needs at least two linkable waves you may read and a chosen variable (page "
                     "“Study plan”, section “Waves”)."), "error")
-        return redirect(url_for("surveys.results", survey_id=survey.id) + "#panel")
+        return redirect(url_for("surveys.results_longitudinal", survey_id=survey.id) + "#panel")
     panel_models.start(current_user, survey, background=not current_app.config.get("HB_SYNC"))
     rows, _ = panel_models.usable(current_user, survey)
     audit.done(detail="waves=" + "+".join(str(r["survey"].id) for r in rows))
-    return redirect(url_for("surveys.results", survey_id=survey.id) + "#panel")
+    return redirect(url_for("surveys.results_longitudinal", survey_id=survey.id) + "#panel")
 
 
 @bp.route("/<sid:survey_id>/results/panel/status")
@@ -670,7 +672,7 @@ def results_sem_docx(survey_id):
                     "CSV und die anderen Formate gehen.",
                     "The Word export does not work on this server at the moment. Please report it via “Feedback” "
                     "(top right); CSV and the other formats work."), "error")
-        return redirect(url_for("surveys.results", survey_id=survey.id) + "#sem")
+        return redirect(url_for("surveys.results_model", survey_id=survey.id) + "#sem")
     result, _ = _sem_of_page(survey)
     if not result or result.get("error") or not result.get("fit"):
         abort(404)

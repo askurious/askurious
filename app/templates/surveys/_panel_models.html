@@ -12,9 +12,10 @@
 {% set L = longitudinal %}
 {% set R = L.result %}
 {% set src = L.src %}
-<section class="panel" id="panel"><details class="res-fold" open>
-  <summary><span class="settings-caret" aria-hidden="true">{{ icon("chevron-right", 18) }}</span><h2>{{ de_en("Längsschnitt über die Wellen", "Longitudinal analysis over the waves") }}
-    {% if R and R.waves %}<span class="hint">{{ R.waves|join(" · ") }}</span>{% endif %}</h2></summary>
+{# on its own page below "Ergebnisse" (surveys/analysis_model.html, which has the name as its h1) #}
+<section class="panel" id="panel">
+  <h2>{{ de_en("Modelle über die Wellen", "Models over the waves") }}
+    {% if R and R.waves %}<span class="hint">{{ R.waves|join(" · ") }}</span>{% endif %}</h2>
   {% if L.missing %}
   <p class="muted small">{{ de_en("Der Längsschnitt verknüpft die Antworten aller Wellen und ist deshalb nur mit Leserecht in jeder Welle zu sehen, deren persönlicher Code dieselben Teile hat. Es fehlt: {w}.", "The longitudinal analysis links the answers of all waves and can therefore only be seen with read access to every wave whose personal code has the same parts. Missing: {w}.", w=L.missing|join(", ")) }}</p>
   {% elif not R and L.job and L.job.state == "running" %}
@@ -146,8 +147,10 @@
   {% if R.unknown_hyps %}<p class="muted small">{{ de_en("Nicht im Modell, weil eine Größe nicht in allen Wellen mit denselben Aussagen steht oder mehrere Teilskalen hat:", "Not in the model because a variable does not stand in all waves with the same statements or has several subscales:") }} {% for a, b in R.unknown_hyps %}{{ a }} → {{ b }}{{ ", " if not loop.last }}{% endfor %}.</p>{% endif %}
   {% if R.real_time_asked and not R.real_time %}<p class="muted small">{{ de_en("Die tatsächlichen Abstände ließen sich nicht verwenden (Startdaten fehlen oder steigen nicht an); gerechnet ist mit 0, 1, 2 …", "The actual intervals could not be used (start dates missing or not increasing); computed with 0, 1, 2 …") }}</p>{% endif %}
   <p class="muted small">{{ term("fiml", "FIML") }}: {{ de_en("Jede verknüpfte Person zählt mit den Wellen, an denen sie teilgenommen hat; das setzt voraus, dass das Fehlen späterer Wellen vom Beobachteten abhängen darf, aber nicht vom fehlenden Wert selbst (MAR). Fehler und Test robust (MLR).", "Every linked person counts with the waves they took part in; this assumes that dropping out may depend on what was observed but not on the missing value itself (MAR). Errors and test robust (MLR).") }} {{ apa.cite([src.enders, src.yuan]) }}. {{ de_en("Messinvarianz über die Zeit", "Measurement invariance over time") }} {{ apa.cite([src.widaman, src.chen]) }}, {{ de_en("Wachstumskurven", "growth curves") }} {{ apa.cite([src.bollen]) }}{% if R.cross %}, {{ de_en("Cross-Lagged-Panel-Modelle", "cross-lagged panel models") }} {{ apa.cite([src.hamaker, src.mulder_hamaker]) }}{% endif %}.</p>
+</section>
+<section class="panel" id="panel-downloads"><h2>{{ de_en("Herunterladen", "Download") }}</h2>
   <p class="form-actions"><a class="button button-secondary button-small" href="{{ url_for('surveys.results_panel_docx', survey_id=survey.id, lang='de') }}">{{ icon("download", 16) }} {{ de_en("Word-Tabelle (Deutsch)", "Word table (German)") }}</a>
     <a class="button button-secondary button-small" href="{{ url_for('surveys.results_panel_docx', survey_id=survey.id, lang='en') }}">{{ icon("download", 16) }} {{ de_en("Word-Tabelle (Englisch)", "Word table (English)") }}</a></p>
   {% if L.at %}<p class="muted small">{{ de_en("Gerechnet: {t}", "Computed: {t}", t=L.at|localdt) }}</p>{% endif %}
   {% endif %}
-</details></section>
+</section>

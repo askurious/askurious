@@ -73,13 +73,13 @@ def test_several_scales_as_one_construct_from_the_plan(app, client, survey, monk
         study_plan.rename_codes(s, {"einstellung": "einst"})
     monkeypatch.setattr(sem_model, "BOOT_DRAWS", 100)
     app.config["HB_SYNC"] = True
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     part = page[page.index('id="sem"'):]
     assert "Haltung" in part and "Formative Konstrukte" in part and "Becker" in page
     assert "Ohne Globalmaß, daher keine Redundanzanalyse: Haltung" in part
     assert 'id="sem-trace"' in part and "PLS-Algorithmus" in part and "zweistufig" in part
     client.post("/surveys/1/results/sem-bootstrap")
-    page = client.get("/surveys/1/results").data.decode()
+    page = (client.get("/surveys/1/results").data.decode() + client.get("/surveys/1/results/model").data.decode())
     hyp = page[page.index('id="hypothesen"'):page.index('id="sem"')]
     assert "Unterstützt" in hyp
     md = client.get("/surveys/1/export/methods-section.md").data.decode()
@@ -94,7 +94,7 @@ def test_several_scales_as_one_construct_from_the_plan(app, client, survey, monk
         assert study_plan.plan_of(s)["sem"]["global"] == {"hoc1": "absicht"}
         (entry,) = sem_model.build(s)["redundancy"]
         assert entry["lv"] == "hoc1" and entry["parts"] == ["tb", "einst"]
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = (client.get("/surveys/1/results?go=1").data.decode() + client.get("/surveys/1/results/model?go=1").data.decode())
     part = page[page.index('id="sem"'):]
     assert "1 Redundanzanalyse" in part and "Ohne Globalmaß" not in part
 
@@ -136,7 +136,7 @@ def test_an_instrument_with_subscales_as_higher_order_in_pls(app, client, survey
     with app.app_context():
         model = sem_model.build(db.session.get(Survey, 1))
         assert model["spec"]["higher"] == {"tech": ["tech:A", "tech:B", "tech:C"]}
-    page = client.get("/surveys/1/results?go=1").data.decode()
+    page = client.get("/surveys/1/results/model?go=1").data.decode()
     part = page[page.index('id="sem"'):]
     assert "(höhere Ordnung)" in part and "Schritt 1 · Messmodell" in part
 

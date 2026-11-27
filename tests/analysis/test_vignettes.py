@@ -278,7 +278,7 @@ def test_analysis_finds_the_effect_of_a_level(app, client, survey):
     kiste = next(c for c in q["coefs"] if c["name"] == "aussehen: Kiste")
     assert kiste["b"] > 1 and kiste["p"] < 0.001 and kiste["ci"][0] > 0
     assert 0 <= q["icc"] < 1
-    page = client.get("/surveys/1/results").get_data(as_text=True)
+    page = client.get("/surveys/1/results/vignettes").get_data(as_text=True)
     assert "Wirkung der Faktoren" in page and "geclustert" in page
 
 
@@ -545,7 +545,7 @@ def test_analysis_leaves_out_missing_codes_and_nominal_questions(app, client, su
     assert q["code"] == code and q["n"] == 116 and q["persons"] == 29
     assert all(l["mean"] is None or 1 <= l["mean"] <= 5 for f in q["by_level"] for l in f["levels"])
     assert [x["code"] for x in found[0]["questions"]] == [code] and found[0]["skipped"] == [choice.code]
-    page = client.get("/surveys/1/results").get_data(as_text=True)
+    page = client.get("/surveys/1/results/vignettes").get_data(as_text=True)
     assert "nicht auf einer Skala gemessen" in page and choice.code in page
 
 
