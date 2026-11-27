@@ -1,7 +1,8 @@
 // Memos of an analysis (app/transcript_coding_memos.py, templates/transcript_coding/_memos.html): a button with
 // data-memo-open (data-kind, data-rid, data-coding, data-cat, data-title) opens the dialog with the memos of that
 // place; the author and the team change or delete theirs, a deleted one comes back with "Rückgängig". After a
-// change the page loads anew when the dialog closes, so that counts and lists are current.
+// change the page loads anew when the dialog closes, so that counts and lists are current. For a member with the role
+// "Lesen" the dialog has no field and no "Speichern": it lists the memos.
 (function () {
   var dialog = document.querySelector("[data-memo-dialog]");
   var dataEl = document.getElementById("tc-memos");
@@ -111,13 +112,14 @@
     target = { kind: b.getAttribute("data-kind"), rid: b.getAttribute("data-rid"), coding: b.getAttribute("data-coding"),
                cat: b.getAttribute("data-cat") };
     titleEl.textContent = b.getAttribute("data-title") || "";
-    text.value = "";
+    if (text) text.value = "";
     err.hidden = true;
     draw();
     if (dialog.showModal && !dialog.open) dialog.showModal();
-    text.focus();
+    if (text) text.focus();
   });
-  dialog.querySelector("[data-memo-save]").addEventListener("click", function () {
+  var save = dialog.querySelector("[data-memo-save]");
+  if (save && text) save.addEventListener("click", function () {
     if (!target) return;
     var body = { kind: target.kind, text: text.value };
     if (target.rid) body.rid = Number(target.rid);

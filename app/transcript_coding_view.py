@@ -833,8 +833,9 @@ def page_data(project, who, row):
             "categories": _categories(project, who), "anchors": {c.id: (c.anchor or {}).get("coding") for c in cats},
             "editable": {c.id: may_edit(project, c, who) for c in cats},
             "examples": {c.id: [e.get("coding") for e in (c.examples or []) if isinstance(e, dict)] for c in cats},
-            "suggestions": transcript_coding_ai.open_suggestions(row, project), "keys": keys(project, who),
-            "marks": placed_marks(row, project, who)}
+            "suggestions": [] if who.reads else transcript_coding_ai.open_suggestions(row, project),
+            "keys": keys(project, who), "marks": placed_marks(row, project, who),
+            "readonly": who.reads}  # the role "Lesen": the script offers no step (and the server takes none, _in)
 
 
 def _payload():

@@ -11,7 +11,7 @@
    its own): Interviews (the default: the interviews to code), Kategoriensystem, and for the team Einstellungen (name,
    research question, visibility, main categories fixed, AI suggestions, members, coding links, deleting); Übersicht
    and Gegenseitige Probe are pages of their own. Fields save by themselves; "Rückgängig" takes back one's own last
-   step. #}
+   step. A member with the role "Lesen" (who.reads) gets the same pages without anything to change. #}
 {% block title %}{{ project.name }} · {{ de_en("Kodieren", "Code") }} · {{ survey.title }}{% endblock %}
 {% block container_class %}tabpage tabpage-single{% endblock %}
 {% block content %}
@@ -23,15 +23,17 @@
 <section class="panel">
   <div class="row results-head">
     {% if who.team %}<h2>{{ project.name }} <span class="hint">{{ de_en("Auswertung", "analysis") }}, {{ interviews|length }} {{ "Interview" if interviews|length == 1 else de_en("Interviews", "interviews") }}</span></h2>
-    {% else %}<h2>{{ de_en("Kodieren als {name}", "Coding as {name}", name=who.name) }} <span class="hint">{{ interviews|length }} {{ "Interview" if interviews|length == 1 else de_en("Interviews", "interviews") }}</span></h2>{% endif %}
+    {% else %}<h2>{{ de_en("Lesen als {name}", "Reading as {name}", name=who.name) if who.reads else de_en("Kodieren als {name}", "Coding as {name}", name=who.name) }} <span class="hint">{{ interviews|length }} {{ "Interview" if interviews|length == 1 else de_en("Interviews", "interviews") }}</span></h2>{% endif %}
     <span class="spacer"></span>
     {{ views(survey, project, who) }}
   </div>
   {% if not who.team and view == "categories" %}
   {% if project.question %}<p><strong>{{ de_en("Forschungsfrage:", "Research question:") }}</strong> {{ project.question }}</p>{% endif %}
+  {% if not who.reads %}
   <p class="muted small">{{ de_en("Sie ergänzen das Kategoriensystem: Unterkategorien mit Name und Definition, auf Wunsch mit Abgrenzung. Ihre eigenen Einträge ändern Sie selbst, bei den anderen schlagen Sie eine Änderung vor. Ähnliche Namen erscheinen beim Anlegen zuerst.", "You add to the category system: subcategories with a name and definition, if you like with a delimitation. You change your own entries yourself; for the others you propose a change. Similar names show first when you create one.") }}
     {% if project.mains_fixed %}{{ de_en("Die Hauptkategorien sind festgelegt: Neue schlagen Sie als Kandidaten vor.", "The main categories are fixed: you propose new ones as candidates.") }}{% endif %}</p>
   <p class="muted small"><span class="autosave-status autosave-page" data-autosave-page role="status" hidden>{{ de_en("Änderungen werden automatisch gespeichert.", "Changes are saved automatically.") }}</span></p>
+  {% endif %}
   {% endif %}
 </section>
 
@@ -94,7 +96,7 @@
     {{ downloads(survey, project, who, full=may_export) }}
     {% if undo_event %}<form method="post" action="{{ url_for('transcript_coding.undo_step', code=survey.code, pid=project.id) }}" class="inline">{{ csrf() }}
       <button class="button button-small button-secondary" title="{{ undo_label(undo_event) }}">{{ icon("undo", 16) }} {{ de_en("Rückgängig", "Undo") }}<span class="visually-hidden">: {{ undo_label(undo_event) }}</span></button></form>{% endif %}
-    {% if show == "list" %}
+    {% if show == "list" and not who.reads %}
     <button type="button" class="button button-small" data-tc-new data-kind="{{ 'main' if may_main else 'candidate' }}">{{ icon("plus", 16) }} {{ de_en("Hauptkategorie", "Main category") if may_main else de_en("Kandidat vorschlagen", "Propose a candidate") }}</button>
     {% endif %}
   </div>
@@ -104,10 +106,10 @@
      that what is typed stays #}
   <div class="row-fields tc-list-tools" data-tc-list-tools>
     <input type="search" class="tc-side-search" data-tc-list-search autocomplete="off" aria-label="{{ de_en('Kategorien suchen', 'Search categories') }}" placeholder="{{ de_en('Suchen: Name oder Nummer', 'Search: name or number') }}">
-    <div role="group" class="tc-seg" aria-label="{{ de_en('Welche Kategorien', 'Which categories') }}">
+    {% if not who.reads %}<div role="group" class="tc-seg" aria-label="{{ de_en('Welche Kategorien', 'Which categories') }}">
       <button type="button" class="tc-seg-btn" data-tc-list-mine="" aria-pressed="true">{{ de_en("Alle", "All") }}</button>
       <button type="button" class="tc-seg-btn" data-tc-list-mine="1" aria-pressed="false">{{ de_en("Meine", "Mine") }}</button>
-    </div>
+    </div>{% endif %}
     <button type="button" class="button button-small button-secondary" data-tc-fold-all="1">{{ de_en("Alle zuklappen", "Fold all") }}</button>
     <button type="button" class="button button-small button-secondary" data-tc-fold-all="">{{ de_en("Alle aufklappen", "Unfold all") }}</button>
     <span class="muted small" data-tc-list-none hidden>{{ de_en("Keine Kategorie gefunden.", "No category found.") }}</span>
@@ -142,8 +144,8 @@
   {% if show == "map" %}
   <div class="res-scroll tc-map" data-tc-csrf="{{ csrf_token() }}">{{ map_svg|safe }}</div>
   {# bars and dashed lines are explained by the legend inside the drawing, which the downloads keep (Ralf 2026-11-20) #}
-  <p class="muted small">
-    {{ de_en("Ziehen (am Finger kurz halten): auf eine Kategorie fragt nach „darunter hängen“ oder „zusammenführen“; an ihren oberen oder unteren Rand zwischen Kategorien derselben Ebene ändert die Reihenfolge; auf den Kasten links macht zur Hauptkategorie. Esc bricht ab; ohne Maus „Verschieben nach …“ in der Liste.", "Drag (with a finger, hold a moment): onto a category asks “put below” or “merge”; onto its upper or lower edge between categories of the same level changes the order; onto the box on the left makes a main category. Esc cancels; without a mouse “Move to …” in the list.") }}</p>
+  {% if not who.reads %}<p class="muted small">
+    {{ de_en("Ziehen (am Finger kurz halten): auf eine Kategorie fragt nach „darunter hängen“ oder „zusammenführen“; an ihren oberen oder unteren Rand zwischen Kategorien derselben Ebene ändert die Reihenfolge; auf den Kasten links macht zur Hauptkategorie. Esc bricht ab; ohne Maus „Verschieben nach …“ in der Liste.", "Drag (with a finger, hold a moment): onto a category asks “put below” or “merge”; onto its upper or lower edge between categories of the same level changes the order; onto the box on the left makes a main category. Esc cancels; without a mouse “Move to …” in the list.") }}</p>{% endif %}
   {% else %}
   {% if not mains and not candidates %}<p class="muted">{{ de_en("Noch keine Kategorien.", "No categories yet.") }}</p>{% endif %}
   <div class="tc-tree" data-tc-csrf="{{ csrf_token() }}">
@@ -157,7 +159,7 @@
       {{ category(main, "tc-main") }}
       <div class="tc-subs">
         {% for sub in subs %}<div class="tc-level" style="--lvl: {{ sub.level - 2 }}" data-tc-anc="{{ sub.anc|join(' ') }}">{{ category(sub, "tc-sub") }}</div>{% endfor %}
-        <button type="button" class="button button-small button-secondary" data-tc-new data-kind="sub" data-parent="{{ main.id }}" data-parent-name="{{ main.name }}">{{ icon("plus", 16) }} {{ de_en("Unterkategorie", "Subcategory") }}</button>
+        {% if not who.reads %}<button type="button" class="button button-small button-secondary" data-tc-new data-kind="sub" data-parent="{{ main.id }}" data-parent-name="{{ main.name }}">{{ icon("plus", 16) }} {{ de_en("Unterkategorie", "Subcategory") }}</button>{% endif %}
       </div>
     </div>
   {% endfor %}
@@ -202,7 +204,7 @@
     <tr><td><strong>{{ r.interview.label }}</strong></td><td>{{ r.interview.by_name or "–" }}</td>
       <td>{% if not has_transcript(r) %}<span class="muted">{{ de_en("noch keines", "none yet") }}</span>{% elif t.checked %}{{ de_en("geprüft", "checked") }}{% else %}{{ de_en("Entwurf", "draft") }}{% endif %}</td>
       <td class="num">{{ coded(r) }}</td>
-      <td class="row-actions">{% if has_transcript(r) %}<a class="button button-small" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("Kodieren", "Code") }}</a>{% else %}<span class="muted small">{{ de_en("erst mit Transkript", "once there is a transcript") }}</span>{% endif %}
+      <td class="row-actions">{% if has_transcript(r) %}<a class="button button-small" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("Ansehen", "View") if who.reads else de_en("Kodieren", "Code") }}</a>{% else %}<span class="muted small">{{ de_en("erst mit Transkript", "once there is a transcript") }}</span>{% endif %}
         {% set dbl = double_of(r.id) %}
         {% if dbl %}<div class="small">{{ de_en("Doppelkodierung:", "Double coding:") }} {% for k in dbl.coders %}{{ dbl.names.get(k, k) }}{% if k in (dbl.done or []) %} ✓{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}
           {% if double_finished(dbl) or who.team %} · <a href="{{ url_for('transcript_coding.compare', code=survey.code, pid=project.id, rid=r.id) }}">{{ de_en("Vergleich", "Comparison") }}</a>{% endif %}</div>{% endif %}
@@ -228,17 +230,20 @@
 
 {% if who.team and view == "settings" %}
 <section class="panel" id="mitglieder">
-  <h2>{{ de_en("Mitglieder", "Members") }} <span class="hint">{{ de_en("Rolle „Kodieren“: kodieren und ergänzen das Kategoriensystem, ändern den Leitfaden nicht", "role “Code”: code and add to the category system, do not change the guide") }}</span></h2>
-  <p class="muted small">{{ de_en("Sie fügen die Kodierenden hinzu und sorgen dafür, dass sie zur Verschwiegenheit verpflichtet sind; alle mit „Bearbeiten“ oder „Admin“ am Leitfaden arbeiten hier ohnehin mit. Mitglieder mit Konto öffnen die Auswertung nach der Anmeldung unter dieser Adresse:", "You add the coders and make sure they are bound to confidentiality; everyone with “Edit” or “Manage” on the guide works here anyway. Members with an account open the analysis after signing in at this address:") }}</p>
+  {% set role_names = {"coder": de_en("Kodieren", "Code"), "reader": de_en("Lesen", "Read")} %}
+  <h2>{{ de_en("Mitglieder", "Members") }} <span class="hint">{{ de_en("Rolle „Kodieren“: kodieren und ergänzen das Kategoriensystem, ändern den Leitfaden nicht; Rolle „Lesen“: sehen dasselbe und ändern nichts", "role “Code”: code and add to the category system, do not change the guide; role “Read”: see the same and change nothing") }}</span></h2>
+  <p class="muted small">{{ de_en("Sie fügen die Mitglieder hinzu und sorgen dafür, dass sie zur Verschwiegenheit verpflichtet sind; alle mit „Bearbeiten“ oder „Admin“ am Leitfaden arbeiten hier ohnehin mit. Mitglieder mit Konto öffnen die Auswertung nach der Anmeldung unter dieser Adresse:", "You add the members and make sure they are bound to confidentiality; everyone with “Edit” or “Manage” on the guide works here anyway. Members with an account open the analysis after signing in at this address:") }}</p>
   <div class="copy-row"><input id="tc-address" value="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, _external=true) }}" readonly aria-label="{{ de_en('Adresse der Auswertung', 'Address of the analysis') }}" data-select-all>
     <button type="button" class="button button-secondary" data-copy="#tc-address">{{ icon("copy", 16) }} {{ de_en("Kopieren", "Copy") }}</button></div>
   {% set listed = members|rejectattr("kind", "equalto", "interviewer")|list %}
   {% if listed %}
   {% call list_table() %}
-    <thead><tr><th>{{ de_en("Name", "Name") }}</th><th>{{ de_en("Art", "Kind") }}</th>{% if project.visibility == "own" %}<th>{{ de_en("Eigene Interviews auch von", "Own interviews also from") }}</th>{% endif %}<th></th></tr></thead>
+    <thead><tr><th>{{ de_en("Name", "Name") }}</th><th>{{ de_en("Art", "Kind") }}</th><th>{{ de_en("Rolle", "Role") }}</th>{% if project.visibility == "own" %}<th>{{ de_en("Eigene Interviews auch von", "Own interviews also from") }}</th>{% endif %}<th></th></tr></thead>
     <tbody>
     {% for m in listed %}
     <tr><td>{{ member_name(m) }}</td><td>{{ de_en("Gruppe", "Group") if m.kind == "group" else de_en("Person", "Person") }}</td>
+      <td><form method="post" action="{{ url_for('transcript_coding.member_role', code=survey.code, pid=project.id, mid=m.id) }}" data-autosave-form>{{ csrf() }}
+        <select name="role" aria-label="{{ de_en('Rolle von {name}', 'Role of {name}', name=member_name(m)) }}">{% for r in member_roles %}<option value="{{ r }}" {% if (m.role or "coder") == r %}selected{% endif %}>{{ role_names[r] }}</option>{% endfor %}</select>{{ autosave_bar(small=true, quiet=true) }}</form></td>
       {% if project.visibility == "own" %}<td>{% if accesses %}<form method="post" action="{{ url_for('transcript_coding.member_interviews', code=survey.code, pid=project.id, mid=m.id) }}" data-autosave-form>{{ csrf() }}
         {% for a in accesses %}<label class="check"><input type="checkbox" name="access" value="{{ a.id }}" {% if a.id in (m.access_ids or []) %}checked{% endif %}> {{ a.name }}</label>{% endfor %}{{ autosave_bar(small=true, quiet=true) }}</form>{% else %}<span class="muted small">{{ de_en("keine Interviewlinks", "no interviewer links") }}</span>{% endif %}</td>{% endif %}
       <td class="row-actions"><form method="post" action="{{ url_for('transcript_coding.remove_member', code=survey.code, pid=project.id, mid=m.id) }}" class="inline">{{ csrf() }}
@@ -251,12 +256,14 @@
     {{ csrf() }}<input type="hidden" name="kind" value="person">
     <label class="wide-field">{{ de_en("Person hinzufügen", "Add a person") }} <input name="person" list="tc-people" placeholder="{{ de_en('ORCID iD oder aus der Liste', 'ORCID iD or from the list') }}" required>
       <datalist id="tc-people">{% for key, name in people %}<option value="{{ key }}">{{ name }}</option>{% endfor %}</datalist></label>
+    <label>{{ de_en("Rolle", "Role") }} <select name="role">{% for r in member_roles %}<option value="{{ r }}">{{ role_names[r] }}</option>{% endfor %}</select></label>
     <div><button class="button button-small button-secondary">{{ de_en("Hinzufügen", "Add") }}</button></div>
   </form>
   {% if groups %}
   <form method="post" action="{{ url_for('transcript_coding.add_members', code=survey.code, pid=project.id) }}" class="row-fields tc-add">
     {{ csrf() }}<input type="hidden" name="kind" value="group">
     <label class="wide-field">{{ de_en("Gruppe hinzufügen", "Add a group") }} <select name="group">{% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}</select></label>
+    <label>{{ de_en("Rolle", "Role") }} <select name="role">{% for r in member_roles %}<option value="{{ r }}">{{ role_names[r] }}</option>{% endfor %}</select></label>
     <div><button class="button button-small button-secondary">{{ de_en("Hinzufügen", "Add") }}</button></div>
   </form>
   {% endif %}
@@ -379,6 +386,7 @@
 </section>
 {% endif %}
 
+{% if not who.reads %}
 {% call dialog("tc-cat-new", de_en("Neue Kategorie", "New category")) %}
 <form method="post" action="{{ url_for('transcript_coding.add', code=survey.code, pid=project.id) }}" class="stack" data-tc-form
       data-similar-url="{{ url_for('transcript_coding.similar_names', code=survey.code, pid=project.id) }}">
@@ -402,6 +410,7 @@
     <button class="button" data-tc-submit>{{ de_en("Anlegen", "Create") }}</button></div>
 </form>
 {% endcall %}
+{% endif %}
 <script type="application/json" id="tc-siblings">{{ siblings|tojson }}</script>
 {% if view != "settings" %}{{ tc_live_marker(survey, project, who) }}
 <script src="{{ url_for('static', filename='transcript_coding_live.js') }}" defer></script>{% endif %}

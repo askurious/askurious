@@ -93,6 +93,7 @@ ACTIONS = {
     # coding interview transcripts (app/transcript_coding.py): who may read the transcripts of an analysis
     "transcript_coding.add_members": "Kodieren: Mitglied aufgenommen",
     "transcript_coding.remove_member": "Kodieren: Mitglied entfernt",
+    "transcript_coding.member_role": "Kodieren: Rolle eines Mitglieds geändert",
     "transcript_coding.interviewers": "Kodieren: Interviewlinks freigegeben/entfernt",
     "transcript_coding.project_file": "Kodieren: REFI-QDA-Projekt heruntergeladen",
     "transcript_coding.categories_xlsx": "Kodieren: Kategoriensystem mit Stellen (Excel) heruntergeladen",
@@ -172,6 +173,7 @@ ACTIONS_EN = {
     "groups.delete": "Group deleted",
     "transcript_coding.add_members": "Coding: member added",
     "transcript_coding.remove_member": "Coding: member removed",
+    "transcript_coding.member_role": "Coding: role of a member changed",
     "transcript_coding.interviewers": "Coding: interviewer links given access/removed",
     "transcript_coding.project_file": "Coding: REFI-QDA project downloaded",
     "transcript_coding.categories_xlsx": "Coding: category system with passages (Excel) downloaded",

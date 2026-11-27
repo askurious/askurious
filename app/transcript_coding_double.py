@@ -72,8 +72,9 @@ def visible(project, who, row, items):
 
 
 def assignable(project, survey):
-    """[(key, name)] of the people who can be assigned: the team (Bearbeiten, Admin), members as persons and through
-    their groups, coding links, interviewers with the tick."""
+    """[(key, name)] of the people who can be assigned: the team (Bearbeiten, Admin), members with the role
+    "Kodieren" as persons and through their groups, coding links, interviewers with the tick. Members with the
+    role "Lesen" code nothing and are not offered."""
     from app.models import InterviewerAccess, User, WorkGroupMember
 
     out = {}
@@ -81,6 +82,8 @@ def assignable(project, survey):
         if m.user_id and m.role != "viewer" and m.user is not None:
             out[f"u:{m.user_id}"] = m.display_name
     for row in members(project):
+        if row.role == CodingMember.READER:
+            continue
         if row.kind == CodingMember.PERSON and row.user_id:
             user = db.session.get(User, row.user_id)
             if user is not None:
@@ -355,7 +358,7 @@ def _comparable(survey, project, who, rid):
 
     row = _row(project, who, rid)
     entry = assignment(project, rid)
-    if entry is None or not (who.team or who.key in entry["coders"]) or not (who.team or finished(entry)):
+    if entry is None or not (who.team or who.reads or who.key in entry["coders"]) or not (who.team or finished(entry)):
         abort(404)
     return row, entry
 
@@ -398,7 +401,7 @@ def compare_decide(code, pid, rid):
 @bp.route("/<code>/interviews/coding/<int:pid>/agreement")
 @signed_in_or_coder
 def agreement_page(code, pid):
-    survey, project, who = _in(code, pid)
+    survey, project, who = _in(code, pid, coder=request.args.get("format") == "csv")  # a reader: the page, no file
     rows = [r for r in interviews(project, who)]
     threshold = _threshold()
     figures = agreement(project, rows, threshold)

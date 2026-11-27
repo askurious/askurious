@@ -487,14 +487,16 @@ class CodingKey(db.Model):
 
 
 class CodingMember(db.Model):
-    """Who codes in an analysis besides the team of the guide, with the role "Kodieren" (codes, never changes the
-    guide): a person ("person", `user_id`), an Askurious group ("group", `group_id`, live for its members) or an
-    interviewer link assigned to this analysis ("interviewer", `access_id`; it codes here only while the link has
-    the right InterviewerAccess.may_code, which says which interviews). `access_ids`: with "own" interviews, the
-    interviewer links whose interviews count as theirs."""
+    """Who works in an analysis besides the team of the guide: a person ("person", `user_id`), an Askurious group
+    ("group", `group_id`, live for its members) or an interviewer link assigned to this analysis ("interviewer",
+    `access_id`; it codes here only while the link has the right InterviewerAccess.may_code, which says which
+    interviews). `role`: "coder" ("Kodieren": codes, never changes the guide) or, for a person or a group, "reader"
+    ("Lesen": sees what the coders see and changes nothing, Ralf 2026-11-27). `access_ids`: with "own" interviews,
+    the interviewer links whose interviews count as theirs."""
 
     __tablename__ = "coding_member"
     PERSON, GROUP, INTERVIEWER = "person", "group", "interviewer"
+    CODER, READER = "coder", "reader"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(index=True)

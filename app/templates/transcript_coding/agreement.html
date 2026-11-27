@@ -13,7 +13,7 @@
   <form method="get" class="row-fields">
     <label>{{ de_en("Mindestüberlappung (%)", "Minimum overlap (%)") }} <input type="number" name="min" min="10" max="100" value="{{ threshold }}" class="narrow"></label>
     <div><button class="button button-small button-secondary">{{ de_en("Neu berechnen", "Calculate again") }}</button></div>
-    <div><a class="button button-small button-secondary" href="{{ url_for('transcript_coding.agreement_page', code=survey.code, pid=project.id, min=threshold, format='csv') }}">{{ icon("download", 16) }} CSV</a></div>
+    {% if not who.reads %}<div><a class="button button-small button-secondary" href="{{ url_for('transcript_coding.agreement_page', code=survey.code, pid=project.id, min=threshold, format='csv') }}">{{ icon("download", 16) }} CSV</a></div>{% endif %}
   </form>
 {% endcall %}
 

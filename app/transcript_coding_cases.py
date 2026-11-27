@@ -166,7 +166,7 @@ def writer(survey, row, key):
     if project is None:
         return team_actor() if team(survey) else None
     who = actor(survey, project)
-    if who is None:
+    if who is None or who.reads:  # the role "Lesen" reads the summaries
         return None
     if not who.team:
         from app import transcript_coding_double

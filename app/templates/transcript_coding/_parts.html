@@ -20,7 +20,8 @@
 {%- endmacro %}
 
 {# the views of an analysis as a switch in the head row of a section (no row of its own, decision "no extra menu
-   band"): Interviews (the default), Kategoriensystem, Übersicht, Gegenseitige Probe and, for the team, Einstellungen;
+   band"): Interviews (the default), Kategoriensystem, Übersicht, Gegenseitige Probe (a step of coding: not for the
+   role "Lesen") and, for the team, Einstellungen;
    the active one marked like "Liste / Diagramm"; then the way back #}
 {% macro views(survey, project, who, current=none) -%}
 {% set here = current or (request.args.get("view") or "interviews" if request.endpoint == "transcript_coding.project" else request.endpoint) %}
@@ -28,8 +29,8 @@
 <div role="group" aria-label="{{ de_en('Ansicht der Auswertung', 'View of the analysis') }}" class="tc-switch">
   {% for key, href, label in [("interviews", url_for('transcript_coding.project', code=survey.code, pid=project.id), "Interviews"),
                               ("categories", url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories'), de_en("Kategoriensystem", "Category system")),
-                              ("transcript_coding.overview", url_for('transcript_coding.overview', code=survey.code, pid=project.id), de_en("Übersicht", "Overview")),
-                              ("transcript_coding.check", url_for('transcript_coding.check', code=survey.code, pid=project.id), de_en("Gegenseitige Probe", "Mutual check"))]
+                              ("transcript_coding.overview", url_for('transcript_coding.overview', code=survey.code, pid=project.id), de_en("Übersicht", "Overview"))]
+                             + ([("transcript_coding.check", url_for('transcript_coding.check', code=survey.code, pid=project.id), de_en("Gegenseitige Probe", "Mutual check"))] if not who.reads else [])
                              + ([("settings", url_for('transcript_coding.project', code=survey.code, pid=project.id, view='settings'), de_en("Einstellungen", "Settings"))] if who.team else []) %}
   <a class="button button-small {{ '' if key == here else 'button-secondary' }}" href="{{ href }}"{% if key == here %} aria-current="page"{% endif %}>{{ label }}</a>
   {% endfor %}

@@ -13,6 +13,11 @@ Who (E2), the actor of a request (`actor`):
 - the team: "Bearbeiten" or "Admin" on the guide, everything;
 - members with the role "Kodieren" (CodingMember): a person or an Askurious group (app/groups.py), signed in; they code
   and add to the category system, never change the guide;
+- members with the role "Lesen" (CodingMember.READER, Ralf 2026-11-27): a person or a group the team entered to
+  read along. They see what a coder sees (the coding view, the category system, the passages and overviews, the
+  memos) of the same interviews, and change nothing: `_in` refuses every request of theirs that is not a GET, and
+  nothing counts as theirs (their `key` is empty), so no page offers them a step. They download the coding guide
+  and the diagram, nothing else;
 - an interviewer link (app/interviewer.py) the team ticked in an analysis ("darf eigene Interviews kodieren", off by
   default): its holder sees only the own interviews, also after "Transkript geprüft". The interviewer link itself, its
   sessions, revisions, devices and its access to interviews stay exactly as they are: the tick is a row of this
@@ -62,9 +67,9 @@ UNDO_KINDS = ("created", "changed", "removed", "promoted", "moved", "ordered")
 
 @dataclass
 class Actor:
-    """Who works in an analysis in this request. kind: "team", "member", "link" or "interviewer"; key: what their
-    entries are marked with ("u:<user id>", "i:<interviewer link id>"; "l:<id>" on entries of the
-    coding links of 2026-10-27)."""
+    """Who works in an analysis in this request. kind: "team", "member", "reader", "link" or "interviewer"; key: what
+    their entries are marked with ("u:<user id>", "i:<interviewer link id>"; "l:<id>" on entries of the
+    coding links of 2026-10-27; empty for a reader, who has no entries)."""
 
     kind: str
     key: str
@@ -76,6 +81,11 @@ class Actor:
     @property
     def team(self):
         return self.kind == "team"
+
+    @property
+    def reads(self):
+        """The role "Lesen": sees, changes nothing."""
+        return self.kind == "reader"
 
 
 def _user_actor(kind, user, members=()):
@@ -120,22 +130,26 @@ def interviewer_member(project, access):
 
 def actor(survey, project):
     """The actor of this request in `project`, or None. A signed-in person with "Bearbeiten" on the guide is the team,
-    else a member if a row lets them in; then an interviewer link with the
-    right "darf kodieren" the team assigned to this analysis. Nobody but the team works in an analysis of an
+    else a member if a row with the role "Kodieren" lets them in; then an interviewer link with the
+    right "darf kodieren" the team assigned to this analysis; last a reader, whose rows all say "Lesen" (one row
+    "Kodieren", as a person or through a group, makes a coder). Nobody but the team works in an analysis of an
     archived guide."""
     from app import interviewer
 
+    rows = []
     if current_user.is_authenticated:
         if team(survey):
             return _user_actor("team", current_user)
-        rows = memberships(project, current_user)
-        if rows and not survey.archived:
+        rows = [] if survey.archived else memberships(project, current_user)
+        if any(r.role != CodingMember.READER for r in rows):
             return _user_actor("member", current_user, rows)
     if interviewer.any_session() and not survey.archived:
         access = interviewer.current(survey)
         if access is not None and interviewer_codes_in(project, access):
             row = interviewer_member(project, access)
             return Actor("interviewer", f"i:{access.id}", access.name, access=access, members=[row] if row else [])
+    if rows:
+        return Actor("reader", "", current_user.display_name, user_id=current_user.id, members=list(rows))
     return None
 
 
@@ -178,12 +192,21 @@ def _team_survey(code):
     return interview_data._survey(code, need="editor")
 
 
-def _in(code, pid, team_only=False):
-    """(survey, project, actor) of a request, else 404."""
+READS = ("GET", "HEAD", "OPTIONS")  # what a reader may ask for; every other request changes something
+
+
+def _in(code, pid, team_only=False, coder=False):
+    """(survey, project, actor) of a request, else 404. A reader (role "Lesen") gets through only with a request
+    that reads: every POST of this blueprint is refused here with 403, whatever the page shows (`coder`: a page
+    that is itself a step of coding or a download kept from readers, 404 for them)."""
     survey = guide(code)
     project = project_of(survey, pid)
     who = actor(survey, project)
-    if who is None or (team_only and not who.team):
+    if who is None:
+        abort(404)
+    if who.reads and request.method not in READS:
+        abort(403)  # before anything else, so that no route has to remember it
+    if (team_only and not who.team) or (coder and who.reads):
         abort(404)
     if who.team:
         from flask import g
@@ -201,7 +224,7 @@ def projects(survey):
 
 
 def projects_for(survey, user):
-    """The analyses `user` works in as a member (for the link to them on the interviewer and results pages)."""
+    """The analyses `user` works in as a member, coding or reading (for the link to them on the results page)."""
     return [p for p in projects(survey) if memberships(p, user)]
 
 
@@ -645,7 +668,7 @@ def coder_names_hidden(project):
 
 def may_export(project, who):
     """Whether `who` downloads Excel, CSV, .qdc and .qdpx of the analysis: the team, an interviewer link with the
-    setting coder_exports."""
+    setting coder_exports. Never a reader: the coding guide and the diagram only."""
     return who.team or (who.kind == "interviewer" and coder_exports(project))
 
 
@@ -654,14 +677,16 @@ def own_or_team(cat, who):
 
 
 def may_create_main(project, who):
-    return who.team or not project.mains_fixed
+    return who.team or not (project.mains_fixed or who.reads)
 
 
 def may_edit(project, cat, who):
     """Change or remove directly: the team always; with "Hauptkategorien festgelegt" no one else a main category;
-    otherwise the author of the entry."""
+    otherwise the author of the entry. Never a reader."""
     if who.team:
         return True
+    if who.reads:
+        return False
     if cat.kind == CodingCategory.MAIN and project.mains_fixed:
         return False
     return bool(cat.author_key) and cat.author_key == who.key
@@ -913,6 +938,8 @@ def may_move(project, cat, who):
     """Moving: a subcategory anyone in the analysis may hang elsewhere, also under another main category; the main
     level (making something a main category, putting a main category below another) is the team's while the main
     categories are fixed, else also the author's (Ralf 2026-10-28)."""
+    if who.reads:
+        return False
     if cat.kind == CodingCategory.SUB:
         return not guarded(project) or own_or_team(cat, who)
     return who.team or (not project.mains_fixed and may_edit(project, cat, who))
@@ -920,7 +947,7 @@ def may_move(project, cat, who):
 
 def may_propose_move(project, cat, who):
     """With the setting `guarded`: someone else's subcategory is moved by proposing it."""
-    return cat.kind == CodingCategory.SUB and guarded(project) and not own_or_team(cat, who)
+    return cat.kind == CodingCategory.SUB and guarded(project) and not who.reads and not own_or_team(cat, who)
 
 
 def drop_data(project, who, mains, candidates):
@@ -1107,6 +1134,8 @@ def decide(project, event, who, accept):
 def undoable(project, who):
     """The own last step that can still be taken back: one of UNDO_KINDS not taken back, after which nobody changed
     that category."""
+    if not who.key:  # a reader has no steps
+        return None
     for event in db.session.scalars(db.select(CodingEvent).filter_by(project_id=project.id, actor_key=who.key)
                                     .where(CodingEvent.kind.in_(UNDO_KINDS)).order_by(CodingEvent.id.desc()).limit(20)):
         if (event.data or {}).get("undone"):
@@ -1233,19 +1262,24 @@ def member_name(row):
     return access.name if access is not None else de_en("gelöschter Interviewlink", "deleted interviewer link")
 
 
-def add_member(project, kind, by, user=None, group=None, access=None):
-    """A person, a group or an interviewer link as member with the role "Kodieren"; returns a problem or None."""
+ROLES = (CodingMember.CODER, CodingMember.READER)  # of a person or a group; an interviewer link always codes
+
+
+def add_member(project, kind, by, user=None, group=None, access=None, role=CodingMember.CODER):
+    """A person or a group as member with the role "Kodieren" or "Lesen", or an interviewer link (always
+    "Kodieren"); returns a problem or None."""
+    role = role if role in ROLES and kind != CodingMember.INTERVIEWER else CodingMember.CODER
     if kind == CodingMember.PERSON:
         if user is None:
             return de_en("Diese Person ist nicht bekannt.", "This person is not known.")
         if db.session.scalar(db.select(CodingMember.id).filter_by(project_id=project.id, kind=kind, user_id=user.id)):
-            return de_en("{name} kodiert hier schon.", "{name} already codes here.", name=user.display_name)
+            return de_en("{name} ist hier schon Mitglied.", "{name} is already a member here.", name=user.display_name)
         row = CodingMember(project_id=project.id, kind=kind, user_id=user.id)
     elif kind == CodingMember.GROUP:
         if group is None:
             return de_en("Diese Gruppe ist nicht bekannt.", "This group is not known.")
         if db.session.scalar(db.select(CodingMember.id).filter_by(project_id=project.id, kind=kind, group_id=group.id)):
-            return de_en("Die Gruppe {name} kodiert hier schon.", "The group {name} already codes here.", name=group.name)
+            return de_en("Die Gruppe {name} ist hier schon Mitglied.", "The group {name} is already a member here.", name=group.name)
         row = CodingMember(project_id=project.id, kind=kind, group_id=group.id)
     elif kind == CodingMember.INTERVIEWER:
         if access is None or access.survey_id != project.survey_id:
@@ -1255,6 +1289,7 @@ def add_member(project, kind, by, user=None, group=None, access=None):
         row = CodingMember(project_id=project.id, kind=kind, access_id=access.id)
     else:
         abort(400)
+    row.role = role
     row.added_by_id, row.added_by_name = by.id, (by.name or "")[:200]
     db.session.add(row)
     return None
@@ -1359,7 +1394,7 @@ def project(code, pid):
     context = dict(survey=survey, project=project, who=who, mains=mains, candidates=candidates, view=view, show=show,
                    nums=numbers(mains), levels={c.id: c.level for m, subs in mains for c in [m] + subs},
                    max_depth=MAX_DEPTH, may_move=lambda c: may_move(project, c, who),
-                   drop_data=drop_data(project, who, mains, candidates) if view == "categories" else None,
+                   drop_data=drop_data(project, who, mains, candidates) if view == "categories" and not who.reads else None,
                    move_ids=lambda c, main=True: move_ids(project, c, who, mains, main),
                    map_opts=map_opts,  # the downloads take the same choice; nothing in the address while all is shown
                    map_query=transcript_coding_review.map_query(map_opts),
@@ -1369,6 +1404,7 @@ def project(code, pid):
                    map_svg=transcript_coding_review.map_svg(project, who, survey, interactive=True, **map_opts) if show == "map" else "",
                    proposals=proposals, may_edit=lambda c: may_edit(project, c, who),
                    may_main=may_create_main(project, who), undo_event=undoable(project, who), undo_label=undo_label,
+                   member_roles=ROLES,
                    history=history(project), event_text=lambda e: event_text(e, names),
                    interviews=interviews(project, who), has_transcript=has_transcript,
                    own_proposal=lambda c: bool(open_proposals(project, c.id, who.key)),
@@ -1661,7 +1697,7 @@ def undo_step(code, pid):
 @bp.route("/<code>/interviews/coding/<int:pid>/members", methods=["POST"])
 @signed_in_or_coder
 def add_members(code, pid):
-    """A person or a group as member (role "Kodieren")."""
+    """A person or a group as member, with the role chosen ("Kodieren" unless the form says "Lesen")."""
     from app import people_keys
     from app.models import WorkGroup
 
@@ -1673,7 +1709,7 @@ def add_members(code, pid):
 
         if group is not None and group.id not in {g.id for g in groups_of(current_user, within=survey)}:
             group = None  # only a group of the one adding, of the guide's organisation
-        problem = add_member(project, kind, current_user, group=group)
+        problem = add_member(project, kind, current_user, group=group, role=request.form.get("role"))
     else:
         from app import orgs
 
@@ -1686,13 +1722,30 @@ def add_members(code, pid):
         problem = orgs.sharing_refused(current_user, survey, key, admits=True) if key and not already else None
         if problem is None:
             user = people_keys.account(key) if key else None
-            problem = add_member(project, CodingMember.PERSON, current_user, user=user)
+            problem = add_member(project, CodingMember.PERSON, current_user, user=user, role=request.form.get("role"))
     if problem:
         db.session.rollback()
         flash(problem, "error")
     else:
         db.session.commit()
-        flash(de_en("Mitglied hinzugefügt: kodiert mit, ändert den Leitfaden nicht.", "Member added: codes along, does not change the guide."), "success")
+        flash(de_en("Mitglied hinzugefügt.", "Member added."), "success")
+    return redirect(_project_url(survey, project, "mitglieder"))
+
+
+@bp.route("/<code>/interviews/coding/<int:pid>/members/<int:mid>/role", methods=["POST"])
+@signed_in_or_coder
+@autosave.aware
+def member_role(code, pid, mid):
+    """"Kodieren" or "Lesen" for a person or a group that is a member already (the team). What the member coded
+    stays, under their name; with "Lesen" they add nothing to it."""
+    survey, project, who = _in(code, pid, team_only=True)
+    row = db.session.get(CodingMember, mid)
+    role = request.form.get("role")
+    if row is None or row.project_id != project.id or row.kind == CodingMember.INTERVIEWER or role not in ROLES:
+        abort(404)
+    row.role = role
+    db.session.commit()
+    flash(de_en("Gespeichert.", "Saved."), "success")
     return redirect(_project_url(survey, project, "mitglieder"))
 
 
