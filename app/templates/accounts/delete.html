@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% from "_macros.html" import csrf, orcid_icon, orcid_link, status_badge, kind_badge %}
+{% from "_macros.html" import csrf, orcid_icon, orcid_link, status_badge, kind_badge, passkey_confirm %}
 {% from "_icons.html" import icon %}
 {# Needs: user (the account), plan (accounts.plan), admin (a site admin deletes someone else's account), fresh. #}
 {% macro participations(n) %}{{ de_en("Teilnahme", "participation") if n == 1 else de_en("Teilnahmen", "participations") }}{% endmacro %}
 {% block title %}{{ de_en("Konto löschen", "Delete account") }}{% endblock %}
 {% block container_class %}container{% if admin %} admin-page{% endif %}{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='passkey.js') }}" defer></script>{% endblock %}
 {% block content %}
 {# for an admin a page below the tab "Forschende": heading and tabs of the administration stay (UI audit 2026-10-07, W101) #}
 {% if admin %}
@@ -165,6 +166,7 @@
     <div class="stack">
       <label>{{ de_en("Zur Bestätigung Ihr Passwort", "Your password to confirm") }}
         <input type="password" name="password" autocomplete="current-password" required></label>
+      {% if passkey_offered() %}<div class="button-row">{{ passkey_confirm("delete") }}</div>{% endif %}
       <div class="button-row">
         <button class="button button-danger">{{ icon("trash", 16) }} {{ de_en("Konto endgültig löschen", "Delete account permanently") }}</button>
         <a class="button button-secondary" href="{{ url_for('accounts.index') }}">{{ de_en("Abbrechen", "Cancel") }}</a>
@@ -174,7 +176,8 @@
     <p>{{ de_en("Zum Löschen muss die Anmeldung frisch sein (höchstens {m} Minuten alt), damit niemand an einem offen gelassenen Rechner Ihr
       Konto löscht.", "To delete, your sign-in must be fresh (at most {m} minutes old), so that nobody deletes your account
       at a computer left open.", m=minutes) }}</p>
-    <p><a class="button button-secondary" href="{{ url_for('auth.login', fresh=1, next=url_for('accounts.delete_own')) }}">{{ orcid_icon() }}{{ de_en("Neu mit ORCID anmelden", "Sign in again with ORCID") }}</a></p>
+    <div class="button-row"><a class="button button-secondary" href="{{ url_for('auth.login', fresh=1, next=url_for('accounts.delete_own')) }}">{{ orcid_icon() }}{{ de_en("Neu mit ORCID anmelden", "Sign in again with ORCID") }}</a>
+      {% if passkey_offered() %}{{ passkey_confirm("fresh", next=url_for('accounts.delete_own')) }}{% endif %}</div>
     {% else %}
     {# as with data-confirm-type: the red button works only once the name is typed, case and spaces aside (W85);
        the server checks it again (accounts.name_matches) #}

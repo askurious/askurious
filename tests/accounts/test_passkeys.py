@@ -85,7 +85,7 @@ def test_a_site_admin_reaches_the_administration_with_a_passkey_and_no_code(app,
     try:
         key = SoftPasskey()
         assert add(client, key)[1].get_json()["ok"]
-        assert "/account/second-factor/set-up" in client.get("/admin/").headers["Location"]  # after ORCID: a code
+        assert "/account/second-factor/code" in client.get("/admin/").headers["Location"]  # after ORCID: a proof
         fresh = app.test_client()
         assert sign_in(fresh, key).get_json()["ok"]
         assert fresh.get("/admin/", follow_redirects=True).status_code == 200  # no factor set up, none asked

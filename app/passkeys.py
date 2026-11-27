@@ -20,6 +20,15 @@ What holds (decisions E1 to E11):
 - A blocked account does not get in; a new password, a one-time link and "Überall abmelden" leave passkeys as they
   are; site admins can remove all passkeys of an account on its page (admin.account, remove_all).
 - The counter of signatures: synchronised passkeys report 0; one that goes back is noted in the security log.
+
+A passkey as proof (stage 2, Ralf 2026-11-27): where a page asks a signed-in account to prove itself (the current
+password, a code from the authenticator app, a fresh sign-in), an account with a passkey may confirm with it instead
+("Mit Passkey bestätigen", confirm_options and confirm). The answer must belong to a passkey of exactly the signed-in
+account, with user verification and the origin as at the sign-in. The one-time value is bound to its purpose
+(PURPOSES): a proof for one place counts at no other. "fresh" marks the session as freshly signed in (in place of
+signing in again, accounts.need_fresh); "admin" counts as the code before the administration (twofactor.ask); the
+others leave a proof in the session that the form sent right after takes once (proved). Never for setting or
+changing a password: a passkey must not make a password (accounts.fresh_for_password).
 """
 import secrets
 import time
@@ -38,6 +47,13 @@ MAX_PER_ACCOUNT = 10
 NAME_LENGTH = 60
 CHALLENGE_SECONDS = 300
 SIGN_IN_KEY, ADD_KEY = "passkey_get", "passkey_add"  # the one-time value of a sign-in / of adding, in the session
+CONFIRM_KEY, PROOF_KEY = "passkey_confirm", "passkey_proof"  # the one-time value of a proof / the proof given
+PROOF_SECONDS = 120  # the form that asked for the proof is sent right after it; a proof left lying counts no more
+FRESH, ADMIN = "fresh", "admin"
+# what a passkey may confirm: a fresh sign-in, the code before the administration, and the forms that ask for the
+# current password (deleting the account, connecting and disconnecting ORCID, removing the password, a further passkey)
+PURPOSES = (FRESH, ADMIN, "delete", "orcid_link", "orcid_remove", "password_remove", "add")
+FRESH_BY = "fresh_by"  # in the session: "passkey" when a passkey proof made the sign-in fresh (accounts.fresh_for_password)
 
 
 # --- the relying party ---------------------------------------------------------------------------------------------
@@ -220,9 +236,9 @@ def sign_in_options():
     return _options(options)
 
 
-def _assertion(kept, credential):
+def _assertion(kept, credential, owner=None):
     """(row, authenticator data) of a valid answer to the one-time value `kept`; else (None, why) with a fixed word
-    for the security log."""
+    for the security log. owner: the account the passkey must belong to (a proof of the signed-in account)."""
     from fido2.webauthn import AuthenticationResponse
 
     from app.models import Passkey
@@ -235,6 +251,8 @@ def _assertion(kept, credential):
         row = db.session.scalar(db.select(Passkey).filter_by(credential_id=_encode(answer.raw_id)))
         if row is None:
             return None, "unknown"
+        if owner is not None and row.user_id != owner.id:
+            return None, "other"
         handle = answer.response.user_handle
         if handle and _encode(handle) != row.user_handle:
             return None, "handle"
@@ -278,12 +296,7 @@ def sign_in():
                               "helfen bei Fragen (siehe Impressum).",
                               "Your account is not (yet) allowed to sign in. A platform admin allows it and helps with "
                               "questions (see the legal notice)."), 403)
-    if (found.counter or row.sign_count) and found.counter <= row.sign_count:
-        # the counter went back or stood still: a copy of the key may be in use. Noted, the higher value stays
-        _event("passkey_counter", account=user.id)
-    else:
-        row.sign_count = found.counter
-    row.backed_up, row.last_used_at = bool(found.is_backed_up()), utcnow()
+    _used(row, found)
     session.pop(invites.SESSION_KEY, None)  # an invitation is taken only by the ORCID way it was opened for
     session.pop(joinlinks.SESSION_KEY, None)
     user.is_admin = user.orcid in current_app.config["ADMIN_ORCIDS"]
@@ -291,6 +304,116 @@ def sign_in():
     db.session.commit()
     auth.remember(user, via=twofactor.VIA_PASSKEY)  # fresh: the person has just proved who they are
     return _answer({"ok": True, "next": nxt or url_for("dashboard.index")})
+
+
+def _used(row, found):
+    """Note a valid use of the passkey: counter, backup state, time. The caller commits."""
+    from app.models import utcnow
+
+    if (found.counter or row.sign_count) and found.counter <= row.sign_count:
+        # the counter went back or stood still: a copy of the key may be in use. Noted, the higher value stays
+        _event("passkey_counter", account=row.user_id)
+    else:
+        row.sign_count = found.counter
+    row.backed_up, row.last_used_at = bool(found.is_backed_up()), utcnow()
+
+
+# --- a passkey as proof of the signed-in account ---------------------------------------------------------------------
+
+
+def offered(user=None):
+    """Whether pages offer "Mit Passkey bestätigen" to this account (the signed-in one): it has a passkey."""
+    user = current_user if user is None else user
+    return bool(getattr(user, "is_authenticated", False) and count(user))
+
+
+@bp.route("/confirm/options", methods=["POST"])
+@login_required
+def confirm_options():
+    """The one-time value of a proof, bound to its purpose and to the signed-in account; the device is told which
+    passkeys count (those of the account)."""
+    from fido2.webauthn import UserVerificationRequirement
+
+    user = current_user._get_current_object()
+    data = request.get_json(silent=True)
+    purpose = str((data if isinstance(data, dict) else {}).get("purpose") or "")
+    session.pop(CONFIRM_KEY, None)
+    rows = of(user)
+    if purpose not in PURPOSES or not rows:
+        return _refused(de_en("Für dieses Konto ist kein Passkey hinterlegt.", "This account has no passkey."))
+    options, state = _server().authenticate_begin(credentials=[_descriptor(row) for row in rows],
+                                                  user_verification=UserVerificationRequirement.REQUIRED)
+    session[CONFIRM_KEY] = {"c": state["challenge"], "at": time.time(), "user": user.id, "purpose": purpose}
+    return _options(options)
+
+
+@bp.route("/confirm", methods=["POST"])
+@login_required
+def confirm():
+    """The device's answer to a proof. Wrong tries count toward the limit per network as at the sign-in and stand
+    in the security log with their purpose."""
+    from app import limits, twofactor
+
+    user = current_user._get_current_object()
+    data = request.get_json(silent=True)
+    data = data if isinstance(data, dict) else {}
+    purpose = str(data.get("purpose") or "")
+    kept = session.pop(CONFIRM_KEY, None)  # counts once, whatever follows
+    session.pop(PROOF_KEY, None)
+    failed = _refused(de_en("Die Bestätigung mit Passkey hat nicht geklappt. Bitte erneut versuchen.",
+                            "Confirming with the passkey did not work. Please try again."), 401)
+    if not limits.allow_login():
+        return _refused(de_en("Von diesem Netzwerk gab es gerade zu viele Versuche. Bitte versuchen Sie es in einigen "
+                              "Minuten erneut.",
+                              "There have just been too many attempts from this network. Please try again in a few "
+                              "minutes."), 429)
+    if (purpose not in PURPOSES or not isinstance(kept, dict) or kept.get("user") != user.id
+            or kept.get("purpose") != purpose):
+        _event("passkey_failed", account=user.id, reason="purpose", kind=purpose[:20])
+        return failed
+    row, found = _assertion(kept, data.get("credential"), owner=user)
+    if row is None:
+        _event("passkey_failed", account=user.id, reason=found, kind=purpose)
+        return failed
+    limits.login_succeeded_here()
+    _used(row, found)
+    db.session.commit()
+    _event("passkey_confirmed", account=user.id, kind=purpose)
+    if purpose == FRESH:
+        session["signed_in_at"], session[FRESH_BY] = time.time(), "passkey"
+    elif purpose == ADMIN:
+        twofactor._passed(by=twofactor.VIA_PASSKEY)  # counts as the code before the administration
+    else:
+        session[PROOF_KEY] = {"purpose": purpose, "user": user.id, "at": time.time()}
+    nxt = local_path(str(data.get("next") or "")) or ""
+    return _answer({"ok": True, "next": nxt} if nxt else {"ok": True})
+
+
+def proved(purpose, user=None):
+    """True once: the signed-in account has just confirmed this purpose with a passkey (confirm). The proof is
+    taken with the look, whatever it says: for another purpose, another account or too old it counts nowhere."""
+    user = current_user if user is None else user
+    kept = session.pop(PROOF_KEY, None)
+    return bool(isinstance(kept, dict) and kept.get("purpose") == purpose and kept.get("user") == user.id
+                and time.time() - float(kept.get("at") or 0) <= PROOF_SECONDS)
+
+
+@bp.route("/confirm")
+@login_required
+def confirm_page():
+    """Where accounts.need_fresh sends an account with a passkey: confirm with it and go on, or sign in again."""
+    from flask import render_template
+
+    from app import accounts
+
+    nxt = local_path(request.args.get("next", "")) or url_for("accounts.index")
+    if accounts._fresh() or not offered():
+        return redirect(nxt)
+    again = (url_for("auth.login", fresh=1, next=nxt) if current_user.has_orcid else url_for("auth.sign_in", next=nxt))
+    response = current_app.make_response(render_template("accounts/passkey_confirm.html", nxt=nxt, again=again,
+                                                         minutes=accounts.FRESH_SECONDS // 60))
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 # --- adding, renaming, removing on the page "Konto" -----------------------------------------------------------------
@@ -306,6 +429,10 @@ def _proof_refused(user, data):
     Else the answer to the script."""
     from app import accounts, passwords, twofactor
 
+    if data.get("proof") is True:
+        if proved("add", user):
+            return None  # confirmed with a passkey the account has already: it stands for the password and the code
+        return _refused(de_en(*accounts.PROOF_GONE))
     if passwords.has_password(user):
         if not passwords.confirm(user, str(data.get("current") or "")):
             ended = accounts._too_many_wrong(user)  # says so itself on the page that follows

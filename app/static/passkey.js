@@ -1,5 +1,5 @@
-// Passkeys (WebAuthn; app/passkeys.py): the sign-in page's button "Mit Passkey anmelden" and the dialog "Passkey
-// hinzufügen" on the page "Konto". Written for Askurious, without a library: the server sends the options for
+// Passkeys (WebAuthn; app/passkeys.py): the sign-in page's button "Mit Passkey anmelden", the dialog "Passkey
+// hinzufügen" on the page "Konto" and the buttons "Mit Passkey bestätigen" where a page asks for a proof. Written for Askurious, without a library: the server sends the options for
 // navigator.credentials as JSON with bytes in base64url, this script turns them into buffers, asks the browser and
 // sends the answer back the same way. Nothing starts by itself: only the click on the button asks the browser.
 (function () {
@@ -60,6 +60,16 @@
     return de_en("Das hat nicht geklappt. Bitte erneut versuchen.", "That did not work. Please try again.");
   }
 
+  // on to the page the server names; the same page with another anchor is loaded anew, so it shows what changed
+  function leave(url) {
+    var to = document.createElement("a");
+    to.href = url;
+    if (to.pathname === window.location.pathname && to.search === window.location.search) {
+      if (to.hash) window.location.hash = to.hash;
+      window.location.reload();
+    } else window.location.assign(url);
+  }
+
   function wire(form, start) {
     var box = form.querySelector("[data-passkey-error]"), busy = false;
     function say(text) { if (box) { box.textContent = text || ""; box.hidden = !text; } }
@@ -68,15 +78,6 @@
     function failed(error) {
       var name = error && error.name;
       say(words(name === "NotAllowedError" || name === "AbortError" ? "cancelled" : name === "InvalidStateError" ? "known" : "failed"));
-    }
-    // on to the page the server names; the same page with another anchor is loaded anew, so it shows what changed
-    function leave(url) {
-      var to = document.createElement("a");
-      to.href = url;
-      if (to.pathname === window.location.pathname && to.search === window.location.search) {
-        if (to.hash) window.location.hash = to.hash;
-        window.location.reload();
-      } else window.location.assign(url);
     }
     function done(result) {
       var url = result && (result.next || result.redirect);
@@ -106,7 +107,9 @@
 
   // "Passkey hinzufügen": name and proof to the server, the browser makes the passkey, its answer back
   function add(form, token, value) {
-    return post(form.getAttribute("data-options"), token(), { name: value("name"), current: value("current"), code: value("code") })
+    var body = form.hasAttribute("data-passkey-proved") ? { name: value("name"), proof: true }
+                                                        : { name: value("name"), current: value("current"), code: value("code") };
+    return post(form.getAttribute("data-options"), token(), body)
       .then(function (got) {
         if (!got || !got.ok) return got;
         return navigator.credentials.create({ publicKey: creationOptions(got.publicKey) }).then(function (credential) {
@@ -115,7 +118,61 @@
       });
   }
 
+  // "Mit Passkey bestätigen": the account proves itself with one of its passkeys for the purpose the button names.
+  // With data-next the page goes on there; inside a form the proof stands for the password and the code, whose
+  // fields rest, and the person presses the form's own button next.
+  function confirmWith(button) {
+    var form = button.closest("form"), busy = false, box = form && form.querySelector("[data-passkey-error]");
+    function say(text) {
+      if (!box && text) {
+        box = document.createElement("p");
+        box.className = "flash flash-error";
+        box.setAttribute("role", "alert");
+        (button.parentNode.parentNode || document.body).insertBefore(box, button.parentNode.nextSibling);
+      }
+      if (box) { box.textContent = text || ""; box.hidden = !text; }
+    }
+    function token() {
+      var field = form && form.querySelector('input[name="csrf_token"]');
+      var meta = document.querySelector('meta[name="csrf-token"]');
+      return field ? field.value : meta ? meta.content : "";
+    }
+    function proved() {
+      var mark = document.createElement("input");
+      mark.type = "hidden"; mark.name = "passkey_proof"; mark.value = "1";
+      form.appendChild(mark);
+      form.setAttribute("data-passkey-proved", "1");
+      ["current", "password", "code"].forEach(function (name) {
+        var field = form.querySelector('input[name="' + name + '"]');
+        if (field) { field.required = false; field.value = ""; field.disabled = true; }
+      });
+      button.disabled = true;
+      button.textContent = button.getAttribute("data-done") || button.textContent;
+    }
+    button.addEventListener("click", function () {
+      if (busy) return;
+      say("");
+      if (!window.PublicKeyCredential || !navigator.credentials) { say(words("unsupported")); return; }
+      busy = true;
+      var purpose = button.getAttribute("data-passkey-confirm"), next = button.getAttribute("data-next") || "";
+      post(button.getAttribute("data-options"), token(), { purpose: purpose }).then(function (got) {
+        if (!got || !got.ok) return got;
+        return navigator.credentials.get({ publicKey: requestOptions(got.publicKey) }).then(function (credential) {
+          return post(button.getAttribute("data-verify"), token(), { purpose: purpose, credential: answer(credential), next: next });
+        });
+      }).then(function (result) {
+        if (!result || !result.ok) { say((result && result.error) || words("failed")); return; }
+        if (next) { leave(result.next || next); return; }
+        if (form) proved();
+      }, function (error) {
+        var name = error && error.name;
+        say(words(name === "NotAllowedError" || name === "AbortError" ? "cancelled" : "failed"));
+      }).then(function () { busy = false; });
+    });
+  }
+
   function ready() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-passkey-confirm]"), confirmWith);
     var entry = document.querySelector("form[data-passkey-sign-in]");
     if (entry) {
       var go = wire(entry, signIn);

@@ -159,7 +159,7 @@ def _context(name):
     return dict(step=name, steps=STEPS, number=STEPS.index(name) + 1, total=len(STEPS),
                 login=passwords.login_row(current_user), has_password=passwords.has_password(current_user),
                 totp=twofactor.enabled(current_user),
-                fresh=accounts._fresh(), minutes=accounts.FRESH_SECONDS // 60, min_length=passwords.MIN_LENGTH,
+                fresh=accounts.fresh_for_password(), minutes=accounts.FRESH_SECONDS // 60, min_length=passwords.MIN_LENGTH,
                 ui_languages=lang.LANGUAGES, ai_access=r, ai_access_days=ai_access.days_left(r),
                 ai_mod=sys.modules["app.ai_access"], here=url_for("account_setup.step", name=name))
 

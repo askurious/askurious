@@ -178,3 +178,11 @@ here (only typed or found in the registry) gets ORCID's "unauthenticated" icon a
              "rlh": ("RLH", de_en("Root Likelihood: geometrisches Mittel der Wahrscheinlichkeiten, die das Modell den Wahlen einer Person gibt", "Root likelihood: geometric mean of the probabilities the model gives to a person’s choices"))}[key] -%}
 <abbr title="{{ t[1] }}">{{ t[0] }}</abbr>
 {%- endmacro %}
+
+{# "Mit Passkey bestätigen" (app/passkeys.py, passkey.js): an account with a passkey proves itself with it where a
+   page asks for the current password, a code or a fresh sign-in. Inside a form the proof stands for the password
+   fields, and the person then presses the form's own button; with `next` the page goes on there by itself. Shown
+   only to accounts with a passkey (passkey_offered()); the page loads passkey.js. #}
+{% macro passkey_confirm(purpose, next=None) -%}
+<button type="button" class="button button-secondary" data-passkey-confirm="{{ purpose }}" data-options="{{ url_for('passkeys.confirm_options') }}" data-verify="{{ url_for('passkeys.confirm') }}"{% if next %} data-next="{{ next }}"{% endif %} data-done="{{ de_en('Mit Passkey bestätigt', 'Confirmed with passkey') }}">{{ de_en("Mit Passkey bestätigen", "Confirm with passkey") }}</button>
+{%- endmacro %}

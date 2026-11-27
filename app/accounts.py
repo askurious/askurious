@@ -659,6 +659,41 @@ def _fresh():
     return time.time() - session.get("signed_in_at", 0) <= FRESH_SECONDS
 
 
+def fresh_for_password():
+    """_fresh() for setting a password: a passkey never counts here, neither a sign-in with one nor a proof with one
+    (passkeys.confirm), so a passkey cannot make a password (Ralf 2026-11-27)."""
+    from app import passkeys, twofactor
+
+    return (_fresh() and session.get(passkeys.FRESH_BY) != "passkey"
+            and session.get(twofactor.SIGNED_IN_VIA) != twofactor.VIA_PASSKEY)
+
+
+PROOF_GONE = ("Die Bestätigung mit Passkey gilt nicht mehr. Bitte erneut bestätigen.",
+              "The confirmation with the passkey no longer holds. Please confirm again.")
+
+
+def not_confirmed(user, purpose, back, field="current", wrong=None):
+    """None if the account proved itself for a form that asks for the current password: with a passkey just before
+    (the button "Mit Passkey bestätigen", passkeys.proved), else with the password typed (passwords.confirm). Else
+    what to answer: back to the page with a message, or signed out after too many wrong passwords (_too_many_wrong).
+    A proof that no longer holds is no wrong password and counts as none."""
+    from app import passkeys, passwords
+
+    if request.form.get("passkey_proof"):
+        if passkeys.proved(purpose, user):
+            return None
+        flash(de_en(*PROOF_GONE), "error")
+        return back
+    if passwords.confirm(user, request.form.get(field, "")):
+        return None
+    ended = _too_many_wrong(user)
+    if ended:
+        return ended
+    if ended is None:
+        flash(wrong or de_en("Das aktuelle Passwort stimmt nicht.", "The current password is not correct."), "error")
+    return back
+
+
 def need_fresh(back):
     """None if this browser signed in within FRESH_SECONDS; else the way to sign in again, back to `back` (a path
     of this site) afterwards. For actions that hand out or remove everything at once (security audit 2026-10-04,
@@ -677,6 +712,12 @@ def need_fresh(back):
                     "Not saved: the last sign-in is older than {n} minutes. Please reload the page, sign in again and "
                     "repeat the change.", n=FRESH_SECONDS // 60), "error")
         return redirect(back)
+    from app import passkeys
+
+    if passkeys.offered():
+        # an account with a passkey confirms with it and goes on, or signs in again from that page
+        keep_entries(back)
+        return redirect(url_for("passkeys.confirm_page", next=back))
     if keep_entries(back):
         flash(de_en("Für diese Aktion bitte neu anmelden: Die letzte Anmeldung ist älter als {n} Minuten. "
                     "Danach geht es hier weiter, Ihre Eingaben stehen wieder im Formular; die Aktion bitte noch einmal "
@@ -783,6 +824,7 @@ def index():
                            my_contact=account_types.contact_of(current_user) if my_period["until"] else "",
                            supervised=account_types.supervised_by(current_user), login=passwords.login_row(current_user),
                            has_password=passwords.has_password(current_user), fresh=_fresh(),
+                           password_fresh=fresh_for_password(),
                            config_admin=managed_by_config(current_user),
                            totp=twofactor.enabled(current_user),
                            passkeys=passkeys.of(current_user), passkeys_max=passkeys.MAX_PER_ACCOUNT,
@@ -993,7 +1035,7 @@ def password():
             return back
     else:
         email = passwords.normal_email(request.form.get("email"))
-        if not _fresh():
+        if not fresh_for_password():
             flash(de_en("Die Anmeldung liegt zu lange zurück. Bitte melden Sie sich neu an und versuchen Sie es dann erneut.",
                         "The sign-in was too long ago. Please sign in again and then try once more."), "error")
             return back
@@ -1038,13 +1080,9 @@ def remove_password():
     back = redirect(url_for("accounts.index") + "#anmeldung")
     if not user.has_orcid or not passwords.has_password(user):
         abort(403)
-    if not passwords.confirm(user, request.form.get("current", "")):
-        ended = _too_many_wrong(user)
-        if ended:
-            return ended
-        if ended is None:
-            flash(de_en("Das aktuelle Passwort stimmt nicht.", "The current password is not correct."), "error")
-        return back
+    stop = not_confirmed(user, "password_remove", back)
+    if stop is not None:
+        return stop
     passwords.remove(user)
     db.session.commit()
     auth.remember(user, fresh=False, keep_age=True)
@@ -1066,13 +1104,9 @@ def remove_orcid():
     back = redirect(url_for("accounts.index") + "#anmeldung")
     if not user.has_orcid or not passwords.has_password(user) or managed_by_config(user):
         abort(403)
-    if not passwords.confirm(user, request.form.get("current", "")):
-        ended = _too_many_wrong(user)
-        if ended:
-            return ended
-        if ended is None:
-            flash(de_en("Das aktuelle Passwort stimmt nicht.", "The current password is not correct."), "error")
-        return back
+    stop = not_confirmed(user, "orcid_remove", back)
+    if stop is not None:
+        return stop
     unlink_orcid(user)
     db.session.commit()
     from app import security_log
@@ -1092,7 +1126,7 @@ def orcid_fresh(user=None):
     from app import twofactor
 
     user = current_user if user is None else user
-    return bool(user.has_orcid and _fresh() and session.get(twofactor.SIGNED_IN_VIA) == "orcid")
+    return bool(user.has_orcid and fresh_for_password() and session.get(twofactor.SIGNED_IN_VIA) == "orcid")
 
 
 @bp.route("/verify-email", methods=["POST"])
@@ -1102,7 +1136,7 @@ def verify_email():
 
     user = _me()
     row = passwords.login_row(user)
-    if row is None or not row.email or not row.password_hash or not _fresh():
+    if row is None or not row.email or not row.password_hash or not fresh_for_password():
         abort(403)
     error = email_confirmation.begin(user, row.email)
     flash(error or de_en("Bestätigen Sie Ihre bestehende Anmeldeadresse über den Link in der E-Mail.",
@@ -1128,7 +1162,7 @@ def confirm_email(token):
     except (ValueError, TypeError):
         abort(404)
     if request.method == "POST":
-        if not _fresh():
+        if not fresh_for_password():
             flash(de_en("Melden Sie sich vor der Bestätigung erneut an.",
                         "Sign in again before confirming."), "error")
         elif email_confirmation.accept(user, token):
@@ -1210,17 +1244,16 @@ def sign_out_everywhere():
 @bp.route("/delete", methods=["GET", "POST"])
 @login_required
 def delete_own():
-    from app import passwords
+    from app import passkeys, passwords
 
     by_password = passwords.has_password(current_user)  # else: a fresh ORCID sign-in and the typed name
     if request.method == "POST":
-        if by_password and not passwords.confirm(current_user, request.form.get("password", "")):
-            ended = _too_many_wrong(current_user)
-            if ended:
-                return ended
-            if ended is None:
-                flash(de_en("Das Passwort stimmt nicht. Es wurde nichts gelöscht.", "The password is not correct. Nothing was deleted."), "error")
-        elif not by_password and not _fresh():
+        stop = not_confirmed(current_user, "delete", redirect(url_for("accounts.delete_own")), field="password",
+                             wrong=de_en("Das Passwort stimmt nicht. Es wurde nichts gelöscht.",
+                                         "The password is not correct. Nothing was deleted.")) if by_password else None
+        if stop is not None:
+            return stop
+        if not by_password and not _fresh():
             flash(de_en("Die Anmeldung liegt zu lange zurück. Bitte melden Sie sich neu an und löschen Sie das Konto dann.",
                         "The sign-in was too long ago. Please sign in again and then delete the account."), "error")
         elif not by_password and not _name_matches(current_user, request.form.get("name")):
@@ -1241,7 +1274,7 @@ def delete_own():
         return redirect(url_for("accounts.delete_own"))
     return render_template("accounts/delete.html", user=current_user, plan=plan(current_user), admin=False,
                            fresh=_fresh(), minutes=FRESH_SECONDS // 60, role_names=SurveyMember.roles(),
-                           by_password=by_password)
+                           by_password=by_password, passkey=passkeys.offered())
 
 
 # for site admins (app/admin.py registers the routes under /admin, behind its admins-only check)

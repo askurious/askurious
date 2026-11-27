@@ -71,3 +71,14 @@ def sign_in(client, passkey, **switches):
     """A sign-in of `client` with `passkey`; switches go to SoftPasskey.get (verified, origin, counter)."""
     options = client.post("/account/passkeys/sign-in/options", json={}).get_json()["publicKey"]
     return client.post("/account/passkeys/sign-in", json={"credential": passkey.get(options, **switches)})
+
+
+def confirm(client, passkey, purpose, sent=None, next="", **switches):
+    """A proof of the signed-in account for `purpose` ("Mit Passkey bestätigen"); `sent`: the purpose the answer
+    names when it differs from the one the one-time value was made for."""
+    first = client.post("/account/passkeys/confirm/options", json={"purpose": purpose})
+    if not (first.get_json() or {}).get("ok"):
+        return first
+    return client.post("/account/passkeys/confirm", json={
+        "purpose": purpose if sent is None else sent, "next": next,
+        "credential": passkey.get(first.get_json()["publicKey"], **switches)})

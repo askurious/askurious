@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, orcid_icon, passkey_confirm %}
+{# Where accounts.need_fresh sends an account with a passkey (passkeys.confirm_page): confirm with the passkey and go
+   on to nxt, or sign in again (again). Needs: nxt, again, minutes. #}
+{% block title %}{{ de_en("Bestätigen", "Confirm") }}{% endblock %}
+{% block head %}<script src="{{ url_for('static', filename='passkey.js') }}" defer></script>{% endblock %}
+{% block content %}
+<h1>{{ de_en("Bestätigen", "Confirm") }}</h1>
+<section class="panel">
+  <p>{{ de_en("Für diese Aktion darf die letzte Anmeldung höchstens {n} Minuten alt sein. Danach geht es dort weiter, wo Sie waren; die Aktion bitte noch einmal auslösen.",
+    "For this action the last sign-in may be at most {n} minutes old. You then go on where you were; please start the action once more.", n=minutes) }}</p>
+  <form class="stack">{{ csrf() }}
+    <div class="button-row">{{ passkey_confirm("fresh", next=nxt) }}
+      <a class="button button-secondary" href="{{ again }}">{% if current_user.has_orcid %}{{ orcid_icon() }}{{ de_en("Neu mit ORCID anmelden", "Sign in with ORCID again") }}{% else %}{{ de_en("Neu anmelden", "Sign in again") }}{% endif %}</a></div>
+  </form>
+</section>
+{% endblock %}
