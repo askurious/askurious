@@ -47,7 +47,7 @@
 </fieldset>
 
 <fieldset>
-  <legend>{{ de_en("Bestätigungen", "Confirmations") }} <span class="hint">{{ de_en("Teilnehmende müssen jede aktive Aussage ankreuzen, bevor sie zustimmen können", "participants must tick every active statement before they can agree") }}{% if not structural %}{{ de_en("; nach dem Start fest, nur der Wortlaut lässt sich korrigieren", "; fixed after the start, only the wording can be corrected") }}{% endif %}</span></legend>
+  <legend>{{ de_en("Bestätigungen", "Confirmations") }} <span class="hint">{{ de_en("Teilnehmende müssen jede aktive Aussage ankreuzen, bevor sie zustimmen können", "participants must tick every active statement before they can agree") }}{% if not structural %}{{ de_en("; nach dem Start fest, nur der Wortlaut lässt sich korrigieren", "; fixed after the start, only the wording can be corrected") }}{% elif (survey.qversion or 1) > 1 %}{{ de_en("; eine Änderung gilt ab dem nächsten Start, der Export nennt je Teilnahme die Bestätigungen ihrer Fassung", "; a change applies from the next start, the export reports the confirmations of each participation’s version") }}{% endif %}</span></legend>
   <ul class="plain confirm-list">
     {% set enabled = item.config.get("confirm", {}) %}
     {# "special" and "audio" only where the survey asks them, and always on (items/consent.py, REQUIRED) #}

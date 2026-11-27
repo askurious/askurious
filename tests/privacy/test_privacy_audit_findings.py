@@ -97,7 +97,9 @@ def test_erasure_takes_the_missed_rows_out_of_saved_states(app, client):
 # --- from tests/audits/test_audit_rest.py: Remaining fixes from the audit of 2026-10-01 (S5, S9, S12 to S15, S17, S18, D-2, D-6, D-7, D-9, D-12 and small ones). ---
 
 
-def test_consent_stays_fixed_after_reopening_with_real_participations(app, client, survey):
+def test_consent_after_reopening_keeps_what_the_earlier_version_asked(app, client, survey):
+    """After "Zur Bearbeitung öffnen" the minimum age stays (audit 2026-10-01); the confirmations can change since
+    2026-11-09, and what the version that ran asked is kept from the reopening on (Ralf, 2026-11-27)."""
     fill_consent(client)
     add(client, "text_input")
     client.post(E + "/items/2", data={"code": "q", "question": "Frage"})
@@ -114,8 +116,10 @@ def test_consent_stays_fixed_after_reopening_with_real_participations(app, clien
                                       "agree": "Fortsetzen", "disagree": "Nein"})          # ticks removed
     with app.app_context():
         item = db.session.get(Item, 1)
-        assert item.config["confirm"] == before["confirm"] and item.config["min_age"] == before["min_age"]
-        assert item.t("de")["body"] == "Neu"
+        assert item.config["min_age"] == before["min_age"] and item.t("de")["body"] == "Neu"
+        assert before["confirm_versions"] == {"1": ["voluntary", "data", "commitment"]}   # kept at the reopening
+        assert item.kind.shown_by_version(item) == before["confirm_versions"]
+        assert [c["key"] for c in item.kind.confirmations(item, "de")] == []            # the new version asks none
 
 
 # --- from tests/audits/test_cr8_a.py: Code review 2026-10-07, package A "Falsche oder verlorene Daten": regression tests for T1, E1, E2, E8, E9, E10, ---

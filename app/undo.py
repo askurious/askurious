@@ -676,7 +676,9 @@ def _apply(survey, step, undoing):
                     item.assets = [Asset(**a) for a in entry.data.get("assets", [])]
                     survey.trash.remove(entry)
             item.code, item.answer_mode = state["code"], state["answer_mode"]
-            item.config, item.texts = state["config"], state["texts"]
+            # what a record of the element holds stays (the consent: what each version asked and every wording agreed to)
+            kept = {k: v for k, v in (item.config or {}).items() if k in item.kind.kept_on_undo}
+            item.config, item.texts = {**state["config"], **kept}, state["texts"]
         for bid in ids("order", True):
             rows = [items[i] for i in target[f"order:{bid}"]]
             blocks[bid].items = rows

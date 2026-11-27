@@ -198,3 +198,184 @@ def _keys(refs):
         else:
             out.append("former" if r[:1] == "m" and r[1:].isdigit() else r)
     return out
+
+
+
+def test_confirmations_change_after_reopening_and_the_export_follows_the_version(app, client, survey):
+    """A survey reopened for editing can change its confirmations (Philipp, 2026-11-09): the earlier version keeps
+    the ones its participants ticked, and the export leaves a column empty for a version that did not ask it."""
+    from app.models import Response, Survey
+
+    E = "/surveys/1/editor/items/1"
+    with app.app_context():
+        s = db.session.get(Survey, 1)
+        s.qversion = 2  # as after "Zur Bearbeitung öffnen" of a version started before the record began
+        old = Response(survey_id=1, source="real", is_preview=False, answers={"1": "1"}, qversion=1)
+        db.session.add(old)
+        db.session.commit()
+        old_id = old.id
+    page = client.get(E).data.decode()
+    assert 'name="confirm_commitment" value="1" checked >' in page and "ab dem nächsten Start" in page
+    client.post(E, data=MultiDict([("code", "consent"), ("confirm_voluntary", "1"), ("body", "x")]))
+    with app.app_context():
+        item = db.session.get(Item, 1)
+        assert [c["key"] for c in item.kind.confirmations(item, "de")] == ["voluntary"]
+        assert item.kind.shown_by_version(item) == {"1": ["age", "voluntary", "data", "commitment"]}
+        assert [c for c, _ in item.kind.export_columns(item)] == [
+            "consent", "consent_age", "consent_voluntary", "consent_data", "consent_commitment"]
+        row = {**item.kind.export_values(item, "1"),
+               **item.kind.export_response_values(item, "1", db.session.get(Response, old_id))}
+        assert row == {"consent": 1, "consent_age": 1, "consent_voluntary": 1, "consent_data": 1, "consent_commitment": 1}
+        new = Response(survey_id=1, source="real", is_preview=False, answers={"1": "1"}, qversion=2)
+        row = {**item.kind.export_values(item, "1"), **item.kind.export_response_values(item, "1", new)}
+        assert row == {"consent": 1, "consent_age": None, "consent_voluntary": 1, "consent_data": None,
+                       "consent_commitment": None}
+        item.kind.freeze_confirmations(item)  # the next start records version 2
+        assert item.config["confirm_versions"]["2"] == ["voluntary"]  # counts once the version has started
+
+
+def _field(app, client):
+    """A started survey with one question and the consent filled; returns its number for /s/."""
+    from tests.conftest import fill_consent
+
+    fill_consent(client)
+    client.post("/surveys/1/editor/blocks/2/items", data={"type": "text_input"})
+    client.post("/surveys/1/editor/items/2", data={"code": "q", "question": "Frage"})
+    client.post("/surveys/1/start", data={"use_end": "1", "field_end": "2031-01-01"})
+    with app.app_context():
+        return 1
+
+
+def _agree(app, uid):
+    from tests.conftest import CONSENT_OK
+
+    p = app.test_client()
+    p.get(f"/s/{uid}")
+    p.post(f"/s/{uid}", data=CONSENT_OK)
+
+
+def test_the_earlier_version_keeps_its_confirmations_from_the_reopening_on(app, client, survey):
+    """Ralf, 2026-11-27: which declaration each participant agreed to must always be traceable. A reopened draft
+    that gains a confirmation (a voice message brings "audio") must not report it for those who agreed before,
+    also before the next start and for a survey reopened before the record of the versions began."""
+    from app.models import Response
+
+    uid = _field(app, client)
+    _agree(app, uid)
+    client.post("/surveys/1/close", data={})
+    client.post("/surveys/1/reopen", data={"confirm": "1"})
+    with app.app_context():
+        item = db.session.get(Item, 1)
+        assert item.kind.shown_by_version(item) == {"1": ["voluntary", "data", "commitment"]}
+        item.config = {k: v for k, v in item.config.items() if k != "confirm_versions"}  # reopened before the record
+        db.session.commit()
+    client.post("/surveys/1/editor/blocks/2/items", data={"type": "voice"})
+    with app.app_context():
+        item = db.session.get(Item, 1)
+        old = db.session.scalar(db.select(Response).filter_by(survey_id=1, is_preview=False))
+        assert "audio" in [c["key"] for c in item.kind.confirmations(item, "de")]
+        assert "consent_audio" in [c for c, _ in item.kind.export_columns(item)]
+        row = {**item.kind.export_values(item, "1"), **item.kind.export_response_values(item, "1", old)}
+        assert row["consent_audio"] is None and row["consent_voluntary"] == 1
+        assert item.kind.asked_in(item, 2) == ["voluntary", "data", "audio", "commitment"]
+
+
+def test_every_wording_someone_could_agree_to_is_kept(app, client, survey):
+    """Ralf, 2026-11-27: the wording of the consent can be corrected in the field, so each one is kept with the time
+    it began, the export names the one in force when a participation began and questionnaire.md holds them all."""
+    from datetime import timedelta
+
+    from app import export
+    from app.models import Response, utcnow
+
+    uid = _field(app, client)
+    with app.app_context():
+        item = db.session.get(Item, 1)
+        first = item.kind.wordings(item)
+        assert [w["n"] for w in first] == [1] and first[0]["qversion"] == 1 and first[0]["from"]
+        assert first[0]["texts"]["de"]["confirmations"][0][0] == "voluntary" and set(first[0]["texts"]) == {"de", "en"}
+        assert "consent_text" not in [c for c, _ in item.kind.export_columns(item)]   # one wording: no column
+        body = item.t("de")["body"]
+    E = "/surveys/1/editor/items/1"
+    form = {"code": "consent", "question": "Einwilligung", "duration": "7", "agree": "Fortsetzen", "disagree": "Nein"}
+    client.post(E, data={**form, "body": body + " Tippfehler"})
+    client.post(E, data={**form, "body": body + " Korrigiert"})  # nobody began in between: replaced, not kept
+    with app.app_context():
+        item = db.session.get(Item, 1)
+        kept = item.kind.wordings(item)
+        assert [w["n"] for w in kept] == [1] and kept[0]["from"] == first[0]["from"]
+        assert "Text Korrigiert" in kept[0]["texts"]["de"]["body"]
+    client.post("/surveys/1/editor/undo")  # "Rückgängig" takes the correction back, never the record
+    with app.app_context():
+        item = db.session.get(Item, 1)
+        kept = item.kind.wordings(item)
+        assert [w["n"] for w in kept] == [1] and kept[0]["from"] == first[0]["from"]
+        assert kept[0]["texts"]["de"]["body"] == item.kind.shown_body(item, "de")
+    client.post(E, data={**form, "body": body + " Korrigiert"})
+    _agree(app, uid)
+    with app.app_context():  # the participation began a while ago, then the wording is corrected
+        old = db.session.scalar(db.select(Response).filter_by(survey_id=1, is_preview=False))
+        old.started_at = utcnow() - timedelta(minutes=5)
+        item = db.session.get(Item, 1)
+        w = [dict(x) for x in item.config["wordings"]]
+        w[0]["from"] = (utcnow() - timedelta(minutes=30)).isoformat(timespec="seconds")
+        item.config = {**item.config, "wordings": w}
+        db.session.commit()
+        old_id = old.id
+    client.post(E, data={**form, "body": body + " Neue Angabe"})
+    _agree(app, uid)
+    with app.app_context():
+        item = db.session.get(Item, 1)
+        kept = item.kind.wordings(item)
+        assert [w["n"] for w in kept] == [1, 2] and "Text Korrigiert" in kept[0]["texts"]["de"]["body"]
+        assert "Text Neue Angabe" in kept[1]["texts"]["de"]["body"]
+        assert ("consent_text", "Wortlaut der Einwilligung beim Beginn der Teilnahme (Nummer, die Wortlaute stehen im "
+                "Fragebogen)") in item.kind.export_columns(item)
+        rows = {r.id: {**item.kind.export_values(item, "1"), **item.kind.export_response_values(item, "1", r)}
+                for r in db.session.scalars(db.select(Response).filter_by(survey_id=1, is_preview=False))}
+        assert rows.pop(old_id)["consent_text"] == 1 and [r["consent_text"] for r in rows.values()] == [2]
+        assert item.kind.export_values(item, None)["consent_text"] is None
+        md = export.questionnaire_md(db.session.get(Survey, 1))
+        assert "Wording 1 (questionnaire version 1, from " in md and "Wording 2 (questionnaire version 1, from " in md
+        assert "Korrigiert" in md and "Neue Angabe" in md and "column `consent_text`" in md
+        assert export.label_en("consent_text", item.kind.export_columns(item)[-1][1]).startswith(
+            "Wording of the consent when the participation began")
+
+
+def test_a_survey_started_before_wordings_were_kept_gets_the_one_found(app, client, survey):
+    """Started before 2026-11-27: the hourly sweep keeps the wording as found, without a time; a correction after
+    that is the second one, and participations from before it have the first."""
+    from datetime import timedelta
+
+    from app import export
+    from app.items import consent
+    from app.models import Response
+
+    uid = _field(app, client)
+    _agree(app, uid)
+    with app.app_context():
+        item = db.session.get(Item, 1)
+        # past the session: saving the element would keep the wording again
+        db.session.execute(Item.__table__.update().where(Item.__table__.c.id == 1).values(
+            config={k: v for k, v in item.config.items() if k != "wordings"}))
+        db.session.commit()
+        db.session.expire_all()
+        assert consent.record_missing() == 1 and consent.record_missing() == 0
+        item = db.session.get(Item, 1)
+        assert [(w["n"], w["from"]) for w in item.kind.wordings(item)] == [(1, None)]
+        body = item.t("de")["body"]
+    client.post("/surveys/1/editor/items/1", data={"code": "consent", "question": "Einwilligung", "duration": "7",
+                                                    "agree": "Fortsetzen", "disagree": "Nein", "body": body + " Später"})
+    with app.app_context():
+        item = db.session.get(Item, 1)
+        assert [w["n"] for w in item.kind.wordings(item)] == [1, 2]
+        r = db.session.scalar(db.select(Response).filter_by(survey_id=1, is_preview=False))
+        r.started_at = r.started_at - timedelta(minutes=1)
+        assert item.kind.export_response_values(item, "1", r)["consent_text"] == 1
+        assert "as found on " in export.questionnaire_md(db.session.get(Survey, 1))
+        db.session.rollback()
+        s = db.session.get(Survey, 1)
+        s.erase_code = True   # the text names the way to delete: a deletion code switched on changes what is agreed to
+        db.session.commit()
+        kept = db.session.get(Item, 1).kind.wordings(db.session.get(Item, 1))
+        assert [w["n"] for w in kept] == [1, 2] and "Löschcode" in kept[1]["texts"]["de"]["body"]  # nobody began: replaced

@@ -1795,8 +1795,14 @@ def codebook(survey, speeder=None, speed_real=True, speed_sources=None, drop_spe
                               else t("ab {lo}", "from {lo}", lo=lo) if hi is None else t("bis {hi}", "up to {hi}", hi=hi))
                 if v == "regex":
                     notes.append(t("Format: ", "format: ") + f"{c.get('pattern')}")
+            elif item.type == "consent" and col == kind.wording_column(item):
+                values = t("Nummer des Wortlauts, siehe Fragebogen (questionnaire.md)",
+                           "number of the wording, see the questionnaire (questionnaire.md)")
             elif item.type == "consent":
                 values = t("1 = zugestimmt; 0 = abgelehnt", "1 = agreed; 0 = declined")
+                if col != item.code and len(kind.shown_by_version(item)) > 1:
+                    notes.append(t("leer, wenn die Fragebogen-Fassung der Teilnahme (qversion) diese Bestätigung nicht gefragt hat",
+                                   "empty when the questionnaire version of the participation (qversion) did not ask this confirmation"))
             elif item.type == "psm" and "_nms_" in col:
                 typ = "Kaufwahrscheinlichkeit"
                 w = kind.nms_weights(item)
@@ -1990,6 +1996,8 @@ LABEL_PATTERNS_EN = [
     (re.compile(r"^Vignetten in gezeigter Reihenfolge$"), "Vignettes in the order shown"),
     (re.compile(r"^Loop-Zeilen in gezeigter Reihenfolge$"), "Loop rows in the order shown"),
     (re.compile(r"^Gezeigte Reihenfolge \(Variablennamen\)"), "Order shown (variable names)"),
+    (re.compile(r"^Wortlaut der Einwilligung beim Beginn der Teilnahme \(Nummer, die Wortlaute stehen im Fragebogen\)"),
+     "Wording of the consent when the participation began (number, the wordings are in the questionnaire)"),
     (re.compile(r"^Startreihenfolge unverändert bestätigt \(1 = ja, 0 = geändert\)"), "Starting order confirmed unchanged (1 = yes, 0 = changed)"),
     (re.compile(r"^Startverteilung unverändert bestätigt \(1 = ja, 0 = geändert\)"), "Starting split confirmed unchanged (1 = yes, 0 = changed)"),
     (re.compile(r"^Reihenfolge der Elemente auf Seite (\d+)"), r"Order of the elements on page \1"),
@@ -2538,6 +2546,34 @@ def _long(survey, columns, rows_of, include_incomplete, separator, sources, drop
     return buf.getvalue()
 
 
+def _consent_history(item, kind, lang):
+    """For questionnaire.md: which confirmations each questionnaire version asked and every wording of the consent
+    someone could agree to, with the time it began (Ralf, 2026-11-27: it must always be possible to tell which
+    declaration each participant agreed to). Nothing for a consent with one version and one wording."""
+    out, versions, kept = [], kind.shown_by_version(item), kind.wordings(item)
+    if len({tuple(keys) for keys in versions.values()}) > 1:
+        out += ["", "  Confirmations asked per questionnaire version (column qversion; a column of a confirmation "
+                "is empty for participations whose version did not ask it):", ""]
+        out += [f"  - Version {v}: " + (", ".join(f"`{item.code}_{k}`" for k in keys) or "none")
+                for v, keys in sorted(versions.items(), key=lambda row: int(row[0]))]
+    if len(kept) > 1:
+        out += ["", f"  Wordings of the consent (column `{item.code}_text`: the number of the wording in force when "
+                "the participation began):"]
+        for w in kept:
+            since = (f"from {w['from'].replace('T', ' ')} UTC" if w.get("from") else
+                     f"as found on {(w.get('noted') or '')[:10]}, when wordings began to be kept; earlier corrections are not known")
+            t = (w.get("texts") or {}).get(lang) or {}
+            out += ["", f"  Wording {w['n']} (questionnaire version {w.get('qversion') or 1}, {since}):", ""]
+            if t.get("question"):
+                out += ["  > **" + t["question"] + "**", "  >"]
+            out += ["  > " + (t.get("body") or "").replace("\n", "\n  > ")]
+            if t.get("pool"):
+                out += ["  >", "  > " + t["pool"].replace("\n", "\n  > ")]
+            out += ["  >"] + [f"  > - [{k}] {text}" for k, text in t.get("confirmations") or []]
+            out += ["  >", f"  > {t.get('note') or ''} [{t.get('agree') or ''}] [{t.get('disagree') or ''}]".rstrip()]
+    return out
+
+
 def questionnaire_md(survey, public=False):
     """The questionnaire as Markdown (default language): flow, loops, pages, items with codes. public: for a deposit
     (app/zenodo.package), without the wording of constructs in constructs.NOT_SHARED (withheld())."""
@@ -2620,6 +2656,7 @@ def questionnaire_md(survey, public=False):
                     pool = kind.pool_notice(item, lang)
                     if pool:
                         out += ["  >", "  > " + pool.replace("\n", "\n  > ")]
+                    out += _consent_history(item, kind, lang)
             out.append("")
     return "\n".join(out) + "\n"
 

@@ -21,6 +21,8 @@ from app.ui_i18n import pick, tr
 CONFIRMATIONS = ("age", "voluntary", "data", "special", "audio", "ai_chat", "commitment")
 REQUIRED = ("special", "audio", "ai_chat")
 FORMER_CONFIRMATIONS = ("age", "voluntary", "data", "commitment")  # surveys started before 2026-10-20
+# the column <code>_text of the export (Consent.wording_column); English in export.COLUMN_LABELS_EN
+WORDING_LABEL = "Wortlaut der Einwilligung beim Beginn der Teilnahme (Nummer, die Wortlaute stehen im Fragebogen)"
 CONFIRMATION_LABELS = {  # (German, English) for the editor (editor/base.py, consent_labels)
     "age": ("Mindestalter", "Minimum age"),
     "voluntary": ("Freiwilligkeit", "Voluntary participation"),
@@ -402,6 +404,7 @@ class Consent(ItemType):
                     "controller": r_text(300), "dpo": r_text(300),
                     "confirm": r_dict(**{k: r_maybe(r_flag) for k in CONFIRMATIONS})}
     result_kind = None  # everyone who took part agreed: nothing to summarise
+    kept_on_undo = ("confirm_versions", "wordings")  # what each version asked, every wording agreed to
     label = Both("Einwilligung", "Consent")
     short = Both("Zustimmung oder Ablehnung", "Agree or refuse")
     description = Both("Informierte Einwilligung mit Zustimmung oder Ablehnung", "Informed consent with agreement or refusal")
@@ -457,14 +460,16 @@ class Consent(ItemType):
         # survey settings and the setup wizard (apply_facts); the element itself only has the duration.
         if lang == item.survey.default_language:
             duration = form.get("duration", "").strip()
-            # what participants confirm stays fixed once the survey has started: the export reports it as
-            # ticked for everyone who agreed (export_values), so a later change would rewrite their answers
-            locked = not structural or self.has_real_answers(item)  # also after "Zur Bearbeitung öffnen"
+            # outside the editable draft the confirmations stay; in a draft (also one reopened for editing) they
+            # can change: each start records those of its questionnaire version, and the export reports a column
+            # empty for participations of a version that did not ask it (export_response_values)
+            if structural:
+                self.keep_earlier_versions(item)
             item.config = {
                 **item.config,
                 "duration": whole(duration),
-                "confirm": item.config.get("confirm", {}) if locked
-                else {k: bool(form.get(f"confirm_{k}")) for k in CONFIRMATIONS},
+                "confirm": {k: bool(form.get(f"confirm_{k}")) for k in CONFIRMATIONS} if structural
+                else item.config.get("confirm", {}),
             }
 
     def apply_facts(self, item, form, lang):
@@ -573,19 +578,130 @@ class Consent(ItemType):
                 and (k != "ai_chat" or _has_ai_chat(item.survey))]
 
     def freeze_confirmations(self, item):
-        """At the start of a draft (lifecycle.start): the confirmations of this version stay as they are."""
-        item.config = {**item.config, "confirm_keys": self.confirmation_keys(item)}
+        """At the start of a draft (lifecycle.start): the confirmations of this version stay as they are, and the
+        record of the versions (shown_by_version) gets those its participants tick."""
+        self.keep_earlier_versions(item)  # with the keys of the last start, before they are replaced
+        keys = self.confirmation_keys(item)
+        record = self.shown_by_version(item)
+        record[str(item.survey.qversion or 1)] = self._asked(item, keys)
+        item.config = {**item.config, "confirm_keys": keys, "confirm_versions": record}
+
+    def shown_by_version(self, item):
+        """{questionnaire version (str): [the confirmation keys its participants ticked to agree]}, written at each
+        start; the confirmations can change in a draft reopened for editing (Philipp, 2026-11-09). Only versions
+        that ran: below the current one, and the current one once it has started (a record that came with a copy
+        of the element counts for nothing)."""
+        return {v: list(keys) for v, keys in (item.config.get("confirm_versions") or {}).items()
+                if str(v).isdigit() and int(v) <= self._last_started(item)}
+
+    @staticmethod
+    def _last_started(item):
+        """The newest questionnaire version that has started: the one being edited in a draft has not."""
+        version = item.survey.qversion or 1
+        return version - 1 if item.survey.status == "draft" else version
+
+    def keep_earlier_versions(self, item):
+        """Before the confirmations can change (lifecycle.reopen_for_editing, and for surveys reopened before
+        2026-11-27 the first save and the next start): versions that ran without a record get those of the last
+        start. They held for them, since until then nothing could change them once someone had agreed."""
+        record = self.shown_by_version(item)
+        missing = [v for v in range(1, item.survey.qversion or 1) if str(v) not in record]
+        if missing:
+            asked = self._asked(item, item.config.get("confirm_keys") or FORMER_CONFIRMATIONS)
+            record.update({str(v): asked for v in missing})
+            item.config = {**item.config, "confirm_versions": record}
+
+    def asked_in(self, item, qversion):
+        """The confirmation keys a participation of this questionnaire version ticked. A version that ran without a
+        record (started before the record began) has those of the last start, never those of a draft changed
+        since; the version being edited has the current ones."""
+        version = qversion or 1
+        found = self.shown_by_version(item).get(str(version))
+        if found is not None:
+            return found
+        if version <= self._last_started(item) and item.survey.status == "draft":
+            return self._asked(item, item.config.get("confirm_keys") or FORMER_CONFIRMATIONS)
+        return self._asked(item, self.confirmation_keys(item))
+
+    # --- the wording participants agreed to ---------------------------------------------------------------------
+    # Ralf, 2026-11-27: it must always be possible to tell which declaration of consent each participant agreed
+    # to. The questionnaire version (qversion) tells the confirmations (shown_by_version); the wording can be
+    # corrected in the field as well, so every wording someone could agree to is kept here with the time it began.
+
+    def declaration(self, item):
+        """{language: what participants read and tick to agree}: title, text as shown (shown_body), the fixed
+        paragraph on pooled constructs, the confirmations with their keys, the note and the two buttons."""
+        out = {}
+        for lang in item.survey.languages or [item.survey.default_language]:
+            t = item.t(lang)
+            out[lang] = {"question": t.get("question") or "", "body": self.shown_body(item, lang) or "",
+                         "pool": self.pool_notice(item, lang) or "",
+                         "confirmations": [[c["key"], c["text"]] for c in self.confirmations(item, lang)],
+                         "note": self.ui_text(item, lang, "agree_note"), "agree": self.ui_text(item, lang, "agree"),
+                         "disagree": self.ui_text(item, lang, "disagree")}
+        return out
+
+    def wordings(self, item):
+        """[{"n", "from" (UTC, ISO; None: found like this when the record began, see record_wording), "noted",
+        "qversion", "texts": declaration()}] in the order they applied; only those of versions that ran."""
+        return [dict(w) for w in (item.config.get("wordings") or [])
+                if isinstance(w, dict) and (w.get("qversion") or 1) <= self._last_started(item)]
+
+    def record_wording(self, item, now=None, found=False):
+        """Keep the wording as it is now if it differs from the last one kept; nothing in a draft (nobody can
+        agree). Called after the start (lifecycle.start), with every change of the element or of the deletion
+        code in a survey that has started (lifecycle._note_text_corrections) and, found=True, once for surveys
+        that started before the record began (record_missing): their entry has no "from", it is the wording as
+        found then, and corrections before that are not known. A wording nobody began under (corrected again
+        before the next participation, as the editor saves by itself) is replaced, not kept."""
+        from app.models import Response, utcnow
+
+        survey = item.survey
+        if survey.status == "draft":
+            return
+        kept, texts = self.wordings(item), self.declaration(item)
+        if kept and kept[-1].get("texts") == texts:
+            return
+        now = (now or utcnow()).isoformat(timespec="milliseconds")
+        entry = {"n": len(kept) + 1, "from": None if found and not kept else now, "noted": now,
+                 "qversion": survey.qversion or 1, "texts": texts}
+        last = kept[-1] if kept else None
+        if last and last.get("from") and last.get("qversion") == entry["qversion"]:
+            from datetime import datetime
+
+            with db.session.no_autoflush:
+                began = db.session.scalar(db.select(Response.id).where(
+                    Response.survey_id == survey.id, Response.started_at >= datetime.fromisoformat(last["from"])).limit(1))
+            if began is None and not (len(kept) > 1 and kept[-2].get("texts") == texts):
+                entry.update(n=last["n"], **{"from": last["from"]})
+                kept = kept[:-1]
+            elif began is None:  # corrected back before anyone began: the wording before stays the last one
+                item.config = {**item.config, "wordings": kept[:-1]}
+                return
+        item.config = {**item.config, "wordings": kept + [entry]}
+
+    def wording_of(self, item, started_at, kept=None):
+        """The number of the wording in force when a participation began (the consent is its first page), or None
+        while nothing is kept for that time."""
+        from datetime import datetime
+
+        found = None
+        for w in self.wordings(item) if kept is None else kept:
+            if w.get("from") is None or (started_at is not None and datetime.fromisoformat(w["from"]) <= started_at):
+                found = w["n"]
+        return found
+
+    def _asked(self, item, keys):
+        """Of `keys` those asked: switched on (or required) and age only with a minimum age."""
+        enabled = item.config.get("confirm", {k: True for k in CONFIRMATIONS})
+        return [key for key in CONFIRMATIONS if key in keys
+                and (key in REQUIRED or enabled.get(key, True)) and (key != "age" or item.config.get("min_age"))]
 
     def confirmations(self, item, lang):
         """Enabled confirmations as [{key, text}] (age only if a minimum age is set; "special" and "audio" always
         where the survey asks them)."""
-        enabled = item.config.get("confirm", {k: True for k in CONFIRMATIONS})
-        keys = self.confirmation_keys(item)
         out = []
-        for key in CONFIRMATIONS:
-            if key not in keys or (key not in REQUIRED and not enabled.get(key, True)) or (
-                    key == "age" and not item.config.get("min_age")):
-                continue
+        for key in self._asked(item, self.confirmation_keys(item)):
             text = item.t(lang).get(f"confirm_{key}") or default_confirmation(key, lang, item.config)
             out.append({"key": key, "text": text, "default": default_confirmation(key, lang, item.config)})
         return out
@@ -1125,19 +1241,51 @@ class Consent(ItemType):
     def display_value(self, item, form, meta=None):
         return {"ticked": [c for c in CONFIRMATIONS if form.get(f"i{item.id}_c_{c}")]}
 
+    def export_keys(self, item):
+        """The confirmations of every questionnaire version: the current ones and those of earlier versions."""
+        asked = set(self._asked(item, self.confirmation_keys(item)))
+        for keys in self.shown_by_version(item).values():
+            asked.update(keys)
+        return [k for k in CONFIRMATIONS if k in asked]
+
+    def wording_column(self, item):
+        """The column naming the wording a participation agreed to: only once there is more than one."""
+        return f"{item.code}_text" if len(self.wordings(item)) > 1 else None
+
     def export_columns(self, item):
+        lang = item.survey.default_language
         cols = [(item.code, item.text("question"))]
-        cols += [(f"{item.code}_{c['key']}", c["text"]) for c in self.confirmations(item, item.survey.default_language)]
+        cols += [(f"{item.code}_{key}", item.t(lang).get(f"confirm_{key}") or default_confirmation(key, lang, item.config))
+                 for key in self.export_keys(item)]
+        if self.wording_column(item):
+            cols.append((self.wording_column(item), WORDING_LABEL))
         return cols
 
     def export_values(self, item, answer):
         agreed = None if answer is None else int(answer)
         out = {item.code: agreed}
         # the columns once per export, not per participation (code review 2026-10-07, R4)
-        for column in prepared(item, "consent_columns", lambda: [
-                f"{item.code}_{c['key']}" for c in self.confirmations(item, item.survey.default_language)]):
-            # agreeing requires every confirmation, so they are 1 exactly for those who agreed
-            out[column] = None if agreed is None else agreed
+        for key in prepared(item, "consent_keys", lambda: self.export_keys(item)):
+            # agreeing requires every confirmation of the version, so they are 1 exactly for those who agreed
+            out[f"{item.code}_{key}"] = None if agreed is None else agreed
+        column = prepared(item, "consent_wording_column", lambda: self.wording_column(item))
+        if column:
+            out[column] = None
+        return out
+
+    def export_response_values(self, item, answer, response):
+        """Empty for a confirmation the participation's questionnaire version did not ask (shown_by_version), and
+        the number of the wording in force when it began (wordings)."""
+        if answer is None or not hasattr(response, "qversion"):
+            return {}
+        qversion = response.qversion or 1
+        keys = prepared(item, "consent_keys", lambda: self.export_keys(item))
+        asked = prepared(item, f"consent_asked_{qversion}", lambda: set(self.asked_in(item, qversion)))
+        out = {f"{item.code}_{key}": None for key in keys if key not in asked}
+        column = prepared(item, "consent_wording_column", lambda: self.wording_column(item))
+        if column:
+            kept = prepared(item, "consent_wordings", lambda: self.wordings(item))
+            out[column] = self.wording_of(item, getattr(response, "started_at", None), kept)
         return out
 
     ends_page = True  # the consent buttons replace the page's "Next" button
@@ -1409,3 +1557,20 @@ def _only_standard(survey):
     """True if the pooled analysis takes only standard questions (age, gender) of this survey, no scale."""
     found = _pooled(survey)
     return bool(found) and all(is_standard for _key, _name, is_standard in found)
+
+
+def record_missing(now=None):
+    """Hourly (lifecycle._rare_sweeps): surveys that started before the wording was kept (2026-11-27) get the one
+    they have now as their first entry, so a later correction leaves it behind. Returns how many got one."""
+    from app.models import Block, Item, Survey
+
+    done = 0
+    rows = db.session.scalars(db.select(Item).join(Block, Block.id == Item.block_id).join(Survey, Survey.id == Block.survey_id)
+                              .where(Item.type == "consent", Survey.status != "draft")).all()
+    for item in rows:
+        if not item.kind.wordings(item):
+            item.kind.record_wording(item, now, found=True)
+            done += 1
+    if done:
+        db.session.commit()
+    return done

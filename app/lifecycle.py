@@ -113,6 +113,9 @@ def start(survey, field_end, max_responses):
     survey.closed_at = None
     survey.close_reason = ""
     _log(survey, "start")
+    consent = survey.consent_item
+    if consent is not None:  # the wording participants agree to from now on (items/consent.py, record_wording)
+        consent.kind.record_wording(consent)
     from app import seal
 
     seal.field_event(survey, "fieldstarted")  # an entry in the seal chain, stamped by the DFN at once (app/seal.py)
@@ -460,7 +463,15 @@ def _note_text_corrections(session, flush_context, instances):
 
     with session.no_autoflush:
         for obj in list(session.dirty):
+            if isinstance(obj, Survey):
+                # the consent text names the way to delete (shown_body): a deletion code switched on or off in the
+                # field changes what participants agree to
+                if obj.status != Survey.DRAFT and inspect(obj).attrs.erase_code.history.has_changes():
+                    _keep_consent_wording(obj.consent_item)
+                continue
             if isinstance(obj, Item):
+                if obj.type == "consent":
+                    _keep_consent_wording(obj)
                 attr = "texts"
             elif isinstance(obj, Block):
                 attr = "titles"
@@ -475,6 +486,14 @@ def _note_text_corrections(session, flush_context, instances):
                 continue  # a draft has no participations yet, or a new questionnaire version (qversion)
             name = obj.code if isinstance(obj, Item) else f"Block {(obj.position or 0) + 1}"
             note_texts(survey, f"{name} ({', '.join(langs)})")
+
+
+def _keep_consent_wording(item):
+    """Every wording of the consent someone could agree to is kept with its time (Ralf, 2026-11-27), whichever page
+    changed it; nothing in a draft."""
+    survey = item.block.survey if item is not None and item.block is not None else None
+    if survey is not None and survey.status != Survey.DRAFT:
+        item.kind.record_wording(item)
 
 
 def reopen_for_editing(survey):
@@ -492,6 +511,9 @@ def reopen_for_editing(survey):
     answer_lock.freeze_on_reopen(survey)  # the grid of a Q sort stays as the answers were given (audit 2026-10-12, M-4)
     survey.status = Survey.DRAFT
     survey.qversion = (survey.qversion or 1) + 1
+    consent = survey.consent_item
+    if consent is not None:  # what the version that ran asked, before the draft can change it (items/consent.py)
+        consent.kind.keep_earlier_versions(consent)
     survey.closed_at = None
     survey.close_reason = ""
     _log(survey, "edit", f"v{survey.qversion}")
@@ -779,6 +801,11 @@ def _rare_sweeps(now):
     from app import browser_receipts, interview_data
 
     _step("browser_receipts.sweep", browser_receipts.sweep, now)
+    from app import hosts
+    from app.items import consent
+
+    if not hosts.on_participant_side():  # the participants' side does not write the questionnaire
+        _step("consent.record_missing", consent.record_missing)  # surveys started before the wording was kept
     from app import construct_sync
 
     # the construct catalogue's newest signed release, once a night, not in a participant's request (it fetches)
