@@ -18,11 +18,11 @@
   <div class="xp-dialog-head"><h2 id="tc-memo-title">{{ de_en("Memos", "Memos") }} <span class="muted small" data-memo-title></span></h2>
     <button type="button" class="xp-close" data-dialog-close aria-label="{{ de_en('Schließen', 'Close') }}">{{ icon("x", 18) }}</button></div>
   <ul class="tc-memo-list" data-memo-list></ul>
-  <label>{{ de_en("Neues Memo", "New memo") }} <span class="hint">{{ de_en("Gedanken, Zweifel, Zusammenhänge; sehen alle, die hier kodieren", "thoughts, doubts, connections; seen by everyone coding here") }}</span>
-    <textarea rows="4" maxlength="4000" data-memo-text></textarea></label>
+  {% if not who.reads %}<label>{{ de_en("Neues Memo", "New memo") }} <span class="hint">{{ de_en("Gedanken, Zweifel, Zusammenhänge; sehen alle, die hier kodieren", "thoughts, doubts, connections; seen by everyone coding here") }}</span>
+    <textarea rows="4" maxlength="4000" data-memo-text></textarea></label>{% endif %}
   <p class="small danger-text" data-memo-error hidden></p>
   <div class="form-actions"><button type="button" class="button button-secondary" data-dialog-close>{{ de_en("Schließen", "Close") }}</button>
-    <button type="button" class="button" data-memo-save>{{ de_en("Speichern", "Save") }}</button></div>
+    {% if not who.reads %}<button type="button" class="button" data-memo-save>{{ de_en("Speichern", "Save") }}</button>{% endif %}</div>
 </dialog>
 <script type="application/json" id="tc-memos">{{ memos|tojson }}</script>
 <script src="{{ url_for('static', filename='transcript_coding_memos.js') }}" defer></script>

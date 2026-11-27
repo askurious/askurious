@@ -21,8 +21,8 @@
   {# the three ways to work on with the interviews, one line each (the downloads are in the tab "Export") #}
   {% if not as_interviewer %}
   <ul class="iv-tools">
-    <li><a class="button button-small button-secondary" href="{{ url_for('transcript_coding.index', code=survey.code) }}">{{ de_en("Kodieren", "Code") }}</a>
-      <span class="muted small">{{ de_en("Textstellen der Transkripte Kategorien zuordnen, auch gemeinsam mit anderen", "assign passages of the transcripts to categories, also together with others") }}</span></li>
+    {% if coding_link %}<li><a class="button button-small button-secondary" href="{{ url_for('transcript_coding.index', code=survey.code) }}">{{ de_en("Kodieren", "Code") }}</a>
+      <span class="muted small">{{ de_en("Textstellen der Transkripte Kategorien zuordnen, auch gemeinsam mit anderen", "assign passages of the transcripts to categories, also together with others") }}</span></li>{% endif %}
     <li><a class="button button-small button-secondary" href="{{ url_for('interview_summaries.page', code=survey.code) }}">{{ de_en("Fallzusammenfassungen", "Case summaries") }}</a>
       <span class="muted small">{{ de_en("je Interview und Themenblock eine kurze Zusammenfassung (thematische Matrix)", "a short summary per interview and topic block (thematic matrix)") }}</span></li>
     <li><a class="button button-small button-secondary" href="{{ url_for('interview_search.page', code=survey.code) }}">{{ de_en("Suche in den Transkripten", "Search in the transcripts") }}</a>

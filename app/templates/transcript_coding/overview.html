@@ -59,16 +59,19 @@
       <p class="muted small">{% set bits = [] %}{% if p.overlap %}{% set _ = bits.append(de_en_n(p.overlap, ("{n} Stelle in beiden", "{n} Stellen in beiden"), ("{n} passage in both", "{n} passages in both"))) %}{% endif %}{% if p.checks %}{% set _ = bits.append(de_en_n(p.checks, ("Probe {n}-mal abweichend", "Probe {n}-mal abweichend"), ("check differed once", "check differed {n} times"))) %}{% endif %}{% if p.names %}{% set _ = bits.append(de_en("ähnliche Namen", "similar names")) %}{% endif %}{{ bits|join(" · ") }}</p>
       <div class="tc-info-actions">
         <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id, cat=[p.a.id, p.b.id]) }}">{{ de_en("Stellen ansehen", "View passages") }}</a>
-        <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}#k{{ p.a.id }}">{{ de_en("Abgrenzung schreiben", "Write a delimitation") }}</a>
+        {% if not who.reads %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}#k{{ p.a.id }}">{{ de_en("Abgrenzung schreiben", "Write a delimitation") }}</a>{% endif %}
       </div>
+      {% if not who.reads %}
       {# merging harmonises name, definition and delimitation in the dialog of the category system #}
       <div class="tc-info-actions">
         <a class="button button-small" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', merge=p.a.id ~ ',' ~ p.b.id) }}">{{ de_en("„{a}“ in „{b}“ zusammenführen …", "Merge “{a}” into “{b}” …", a=p.a.name, b=p.b.name) }}</a>
         <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', merge=p.b.id ~ ',' ~ p.a.id) }}">{{ de_en("„{a}“ in „{b}“ zusammenführen …", "Merge “{a}” into “{b}” …", a=p.b.name, b=p.a.name) }}</a>
       </div>
+      {% endif %}
     </div>
     {% endfor %}
     {% else %}<p class="muted small">{{ de_en("Keine unscharfen Paare: keine Stellen in zwei Kategorien, keine abweichende Probe, keine ähnlichen Namen.", "No blurring pairs: no passages in two categories, no differing check, no similar names.") }}</p>{% endif %}
+    {% if not who.reads %}
     {# two categories picked from the tree with search and numbers, then merged and harmonised in the dialog of the
        category system (feedback 2026-11-06: the flat lists were hard to read) #}
     <div><button type="button" class="button button-small button-secondary" data-tc-merge-open>{{ de_en("Zwei andere Kategorien zusammenführen …", "Merge two other categories …") }}</button></div>
@@ -90,6 +93,7 @@
           <button class="button button-small">{{ de_en("Weiter: vereinheitlichen", "Next: harmonise") }}</button></div>
       </form>
     </dialog>
+    {% endif %}
   </section>
   <section class="panel" id="verlauf">
     <h2>{{ de_en("Verlauf", "History") }}</h2>
@@ -138,8 +142,8 @@
   </ul>
   <div class="tc-info-actions">
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.passages', code=survey.code, pid=project.id, cat=[ov_cell.a.id, ov_cell.b.id]) }}">{{ de_en("Alle Stellen beider ansehen", "View all passages of both") }}</a>
-    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}#k{{ ov_cell.a.id }}">{{ de_en("Abgrenzung schreiben", "Write a delimitation") }}</a>
-    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', merge=ov_cell.a.id ~ ',' ~ ov_cell.b.id) }}">{{ de_en("„{a}“ in „{b}“ zusammenführen …", "Merge “{a}” into “{b}” …", a=ov_cell.a.name, b=ov_cell.b.name) }}</a>
+    {% if not who.reads %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories') }}#k{{ ov_cell.a.id }}">{{ de_en("Abgrenzung schreiben", "Write a delimitation") }}</a>
+    <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id, view='categories', merge=ov_cell.a.id ~ ',' ~ ov_cell.b.id) }}">{{ de_en("„{a}“ in „{b}“ zusammenführen …", "Merge “{a}” into “{b}” …", a=ov_cell.a.name, b=ov_cell.b.name) }}</a>{% endif %}
   </div>
   {% endif %}
 </section>

@@ -8,7 +8,8 @@
    the category system on the right. Marking a passage opens a small list to assign a category (typing filters it,
    1-9 take the person's keys, set at a category of the side; Enter takes the first); a click on a coded passage shows its categories with
    "Entfernen" and "Als Ankerbeispiel". Everything is drawn by transcript_coding_code.js from the data below; without
-   script the transcript stands as plain text. #}
+   script the transcript stands as plain text. For a member with the role "Lesen" (tc_data.readonly) marking opens
+   nothing and a coded passage shows its categories and memos only. #}
 {% block title %}{{ row.interview.label }} · {{ project.name }} · {{ survey.title }}{% endblock %}
 {% block container_class %}tabpage tabpage-single{% endblock %}
 {% block content %}
@@ -26,9 +27,11 @@
     {% if nxt %}<a class="button button-small button-secondary" href="{{ url_for('transcript_coding.page', code=survey.code, pid=project.id, rid=nxt.id) }}">{{ de_en("Nächstes Interview", "Next interview") }}</a>{% endif %}
     <a class="button button-small button-secondary" href="{{ url_for('transcript_coding.project', code=survey.code, pid=project.id) }}#interviews">{{ icon("back", 16) }} {{ project.name }}</a>
   </div>
+  {% if not who.reads %}
   <p class="muted small tc-hint-keys">{{ de_en("Eine Textstelle markieren, dann die Kategorie wählen: tippen filtert, Enter nimmt die erste, die Tasten 1 bis 9 die Kategorien, denen Sie rechts eine Taste geben. Markiert wird immer ganze Wörter. Ein Klick auf eine kodierte Stelle zeigt ihre Kategorien. Markiertes lässt sich auch auf eine Kategorie rechts ziehen oder mit „Fett“ hervorheben.", "Mark a passage, then choose the category: typing filters, Enter takes the first, the keys 1 to 9 the categories you give a key on the right. Whole words are always marked. A click on a coded passage shows its categories. Marked text can also be dragged onto a category on the right or highlighted with “Bold”.") }}</p>
   <p class="muted small tc-hint-touch">{{ de_en("Auf eine Textstelle lange drücken und die Griffe ziehen; kurz danach öffnet sich die Liste der Kategorien. Markiert wird immer ganze Wörter. Antippen einer kodierten Stelle zeigt ihre Kategorien.", "Press and hold a passage and drag the handles; a moment later the list of categories opens. Whole words are always marked. Tapping a coded passage shows its categories.") }}</p>
   {{ why("anchor_choice") }}
+  {% endif %}
   {% if ai_on_state == "on" and not ai_checked %}
   <p class="muted small">{{ de_en("KI-Vorschläge gibt es erst, wenn das Transkript geprüft ist.", "AI suggestions come only once the transcript is checked.") }}</p>
   {% elif ai_on_state == "on" %}
@@ -58,7 +61,7 @@
      data-add-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
      data-base-url="{{ url_for('transcript_coding.code_passage', code=survey.code, pid=project.id, rid=row.id) }}"
      data-quick-url="{{ url_for('transcript_coding.quick_category', code=survey.code, pid=project.id) }}"
-     data-keys-url="{{ url_for('transcript_coding.set_keys', code=survey.code, pid=project.id) }}"
+     {% if not who.reads %}data-keys-url="{{ url_for('transcript_coding.set_keys', code=survey.code, pid=project.id) }}"{% endif %}
      data-project="{{ project.id }}" data-icon-info="{{ icon_sprite() }}#info" data-may-main="{{ '1' if may_main else '' }}"
      data-sugg-url="{{ url_for('transcript_coding.suggestion_action', code=survey.code, pid=project.id, rid=row.id, action='ACTION') }}">
   <section class="panel tc-transcript" aria-label="{{ de_en('Transkript', 'Transcript') }}">
@@ -79,10 +82,10 @@
          data-spots-url="{{ url_for('transcript_coding.category_spots', code=survey.code, pid=project.id, cid=0) }}">
     <div class="tc-side-head">
       <h2>{{ de_en("Kategoriensystem", "Category system") }}</h2>
-      <div role="group" class="tc-seg" aria-label="{{ de_en('Welche Kategorien', 'Which categories') }}">
+      {% if not who.reads %}<div role="group" class="tc-seg" aria-label="{{ de_en('Welche Kategorien', 'Which categories') }}">
         <button type="button" class="tc-seg-btn" data-tc-mine="" aria-pressed="true">{{ de_en("Alle", "All") }}</button>
         <button type="button" class="tc-seg-btn" data-tc-mine="1" aria-pressed="false">{{ de_en("Meine", "Mine") }}</button>
-      </div>
+      </div>{% endif %}
     </div>
     <input type="search" class="tc-side-search" data-tc-search autocomplete="off" aria-label="{{ de_en('Kategorien suchen', 'Search categories') }}" placeholder="{{ de_en('Suchen: Name oder Nummer', 'Search: name or number') }}">
     {{ notices_fold(survey, project, notices) }}

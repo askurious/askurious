@@ -374,7 +374,11 @@ def page(code):
     form_items = answer_items(survey)  # the tasks, then the Kurzfragebogen and the Postskript (case overview)
     short = short_results(survey, trials)
     short_cited = res.page_sources(short) if short else []  # Wilson, mode etc. of the Kurzfragebogen
-    return render_template("interview/results.html", survey=survey, interviews=interviews, trials=trials,
+    from app import transcript_coding
+
+    # "Kodieren" only where it leads somewhere: the team of the guide, or a member of one of its analyses
+    coding_link = access is None and (transcript_coding.team(survey) or bool(transcript_coding.projects_for(survey, current_user)))
+    return render_template("interview/results.html", survey=survey, interviews=interviews, trials=trials, coding_link=coding_link,
                            coverage=coverage(survey, interviews), durations=durations(survey, interviews),
                            general_notes=general_notes(interviews), form_items=form_items, short=short, f={"weighted": False}, as_interviewer=access is not None, marks=STATE_MARK, words=state_words(),
                            has_tasks=bool(interview_tasks.tasks(survey)),

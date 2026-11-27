@@ -2,6 +2,8 @@
 // transcript with its coded passages, turns a marked passage into offsets in the transcript, offers the categories to
 // assign (filter, the person's keys 1-9, Enter, a new category on the spot) and shows what a coded passage
 // carries. The server widens a passage to whole words and stores it; the page draws it anew from the answer.
+// data.readonly (a member with the role "Lesen"): marking opens nothing, nothing is dragged, and a coded passage shows
+// its categories and memos without a step to take (the server refuses every such request anyway).
 (function () {
   var root = document.querySelector("[data-tc-code]");
   var dataEl = document.getElementById("tc-data");
@@ -19,6 +21,7 @@
   var csrf = root.getAttribute("data-csrf"), base = root.getAttribute("data-base-url");
   var PALETTE = ["#8A4B14", "#2957A4", "#1F6B2A", "#7A3FD1", "#B3261E", "#0B6E86", "#7A5B00"];
   var keyMap = data.keys || {};
+  var readonly = !!data.readonly;
   var marks = data.marks || [];  // passages printed bold by hand (Ralf 2026-11-07)
   // a speaker mark at the start of a line, as the transcription writes it ("I:", "B:", "B2:", "Interviewer:"): bold
   var SPEAKER = /^(\s*)([A-ZÄÖÜ][A-Za-zÄÖÜäöüß]{0,15}\d{0,2}:)/;  // the person's keys 1 to 9: {"1": category id}, kept on the server (feedback 2026-11-06)
@@ -401,7 +404,7 @@
     if (!drawn) {
       var none = document.createElement("li");
       none.className = "muted small";
-      none.textContent = onlyMine && !q ? de_en("Sie haben noch keine Kategorie angelegt.", "You have not created a category yet.")
+      none.textContent = onlyMine && !q && !readonly ? de_en("Sie haben noch keine Kategorie angelegt.", "You have not created a category yet.")
         : de_en("Keine Kategorie gefunden.", "No category found.");
       side.appendChild(none);
     }
@@ -508,6 +511,7 @@
 
   var boldButton = pop.querySelector("[data-tc-bold]");
   function openPop(m) {
+    if (readonly) return;
     if (placing) { placeAgain(m); return; }  // "Neu zuordnen": the passage just marked is the new place
     selection = m;
     recoding = null;
@@ -657,6 +661,7 @@
   }
 
   function assign(catId) {
+    if (readonly) return;
     if (recoding) { var c = recoding; closePop(); recodeTo(c, catId); return; }
     if (!selection) return;
     var m = selection;
@@ -781,7 +786,7 @@
     say(de_en("Auf eine Kategorie im Kategoriensystem ziehen; Esc bricht ab.", "Drag onto a category of the category system; Esc cancels."));
   }
   box.addEventListener("dragstart", function (e) {
-    if (touching()) return;
+    if (touching() || readonly) return;
     var m = marked();
     if (!m) return;
     closePop();

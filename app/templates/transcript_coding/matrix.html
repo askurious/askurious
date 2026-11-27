@@ -8,7 +8,7 @@
 {% block container_class %}tabpage tabpage-single{% endblock %}
 {% block content %}
 {% call head(survey, project, who, de_en("Kategorie × Interview", "Category × interview")) %}
-  <div><a class="button button-small button-secondary" href="{{ url_for('transcript_coding.matrix', code=survey.code, pid=project.id, format='csv') }}">{{ icon("download", 16) }} CSV</a></div>
+  {% if not who.reads %}<div><a class="button button-small button-secondary" href="{{ url_for('transcript_coding.matrix', code=survey.code, pid=project.id, format='csv') }}">{{ icon("download", 16) }} CSV</a></div>{% endif %}
 {% endcall %}
 <section class="panel">
   {% if cats and rows %}

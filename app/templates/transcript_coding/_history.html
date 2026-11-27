@@ -12,13 +12,13 @@
     {% elif e.kind == "merged" %}{{ de_en("führt „{a}“ mit „{b}“ zusammen und vereinheitlicht sie als „{c}“", "merges “{a}” with “{b}” and harmonises them as “{c}”", a=d.source_name, b=d.target_name, c=d.after_name) if d.unified else de_en("führt „{a}“ mit „{b}“ zusammen", "merges “{a}” with “{b}”", a=d.source_name, b=d.target_name) }}{% if e.reason %}: „{{ e.reason }}“{% endif %}{% if d.undone %} <span class="muted small">({{ de_en("zurückgenommen", "taken back") }})</span>{% endif %}
     {% elif e.kind == "unmerged" %}{{ de_en("nimmt das Zusammenführen von „{a}“ zurück", "takes back the merge of “{a}”", a=d.source_name) }}
     {% else %}{{ event_text(e) }}{% if e.reason %}: „{{ e.reason }}“{% endif %}{% endif %}
-    {% if e.kind == "merged" and not d.undone and (who.team or e.actor_key == who.key) %}
+    {% if e.kind == "merged" and not d.undone and not who.reads and (who.team or e.actor_key == who.key) %}
     <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='undo') }}" class="inline">{{ csrf() }}<button class="button button-small button-secondary">{{ de_en("Zurücknehmen", "Take back") }}</button></form>{% endif %}
     {% if e.kind == "moved" and move_back and move_back(e) %}{% set later = changed_since(e) %}
     <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='undo') }}" class="inline"
       {% if later %}data-confirm="{{ de_en('Verschieben zurücknehmen?', 'Take back the move?') }}" data-confirm-note="{{ de_en('Die Kategorie wurde seither weiter geändert. Sie kommt trotzdem an ihren alten Platz; die späteren Änderungen an Name und Definition bleiben.', 'The category was changed since. It still goes back to its old place; the later changes of name and definition stay.') }}" data-confirm-ok="{{ de_en('Zurücknehmen', 'Take back') }}"{% endif %}>
       {{ csrf() }}{% if later %}<input type="hidden" name="force" value="1">{% endif %}<button class="button button-small button-secondary">{{ de_en("Zurücknehmen", "Take back") }}</button></form>{% endif %}
-    {% if e.kind in ("merged", "changed", "proposal", "split_off") %}
+    {% if e.kind in ("merged", "changed", "proposal", "split_off") and not who.reads %}
     <details class="tc-comment"><summary>{{ de_en("Kommentieren", "Comment") }}</summary>
       <form method="post" action="{{ url_for('transcript_coding.answer', code=survey.code, pid=project.id, eid=e.id, answer='comment') }}" class="row-fields">{{ csrf() }}
         <label class="wide-field">{{ de_en("Kommentar", "Comment") }} <input name="text" maxlength="1000" required></label>

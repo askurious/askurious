@@ -31,6 +31,8 @@
           <button type="button" class="button button-small button-secondary" data-summary-prefill="{{ draft(items) }}">{{ de_en("aus Stellen vorbefüllen", "Prefill from passages") }}</button>
           <button type="button" class="button button-small button-secondary" data-summary-undo hidden>{{ de_en("Entwurf leeren", "Clear the draft") }}</button>
         </div>{% endif %}
+        {% elif who.reads %}
+        {% if s.get(key) %}<p class="tc-text">{{ s.get(key) }}</p><p class="summary-by muted small">{{ author_line(r, key) }}</p>{% endif %}
         {% else %}
         <p class="muted small">{{ de_en("Doppelkodierung: Zusammenfassen erst, wenn alle „Kodierung abgeschlossen“ gemeldet haben.", "Double coding: summarising only once everyone has reported “Coding finished”.") }}</p>
         {% endif %}

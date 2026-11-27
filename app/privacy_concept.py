@@ -322,6 +322,23 @@ def roles():
                        "the analysis's setting “may also download Excel, CSV, .qdc and .qdpx” (off until the team sets it) "
                        "these files too, limited to the interviews and passages they see, with “Coder 1, 2 …” instead of "
                        "the names of others while “hide names” is on (default).")},
+        {"who": de_en("Lesende einer Auswertung (Rolle „Lesen“)", "Readers of an analysis (role “Read”)"),
+         "how": de_en("Von Beteiligten mit Bearbeiten oder Verwalten einer Auswertung des Leitfadens zugeordnet, als Person "
+                      "oder Gruppe mit Konto; die Rolle lässt sich je Mitglied zwischen „Kodieren“ und „Lesen“ umstellen",
+                      "assigned to an analysis of the guide by members with Edit or Manage, as a person or group with an "
+                      "account; the role can be switched per member between “Code” and “Read”"),
+         "sees": de_en("Dasselbe wie Kodierende mit Konto: die Transkripte der Interviews dieser einen Auswertung (je nach "
+                       "Einstellung alle oder nur die eigenen), die kodierten Stellen, das Kategoriensystem, die Übersichten "
+                       "und die Memos. Ändern nichts: Der Server lehnt jede ändernde Anfrage ab (kein Kodieren, keine "
+                       "Kategorien, Memos, Vorschläge, Fallzusammenfassungen, keine KI-Vorschläge). Nicht den Leitfaden, keine "
+                       "Aufnahmen, keine anderen Auswertungen; als Export nur den Kodierleitfaden und das Diagramm des "
+                       "Kategoriensystems.",
+                       "The same as coders with an account: the transcripts of the interviews of that one analysis "
+                       "(depending on the setting all or only their own), the coded passages, the category system, the "
+                       "overviews and the memos. Change nothing: the server refuses every request that changes something "
+                       "(no coding, no categories, memos, proposals, case summaries, no AI suggestions). Not the guide, no "
+                       "recordings, no other analyses; as an export only the coding guide and the diagram of the category "
+                       "system.")},
         {"who": de_en("Interviewte Personen", "Interviewees"),
          "how": de_en("Eingetragen von Forschenden; mit dem Teilnehmerbildschirm ein Link je Interview "
                       "für ein einziges eigenes Gerät, ohne Konto",
@@ -725,12 +742,12 @@ def _activities():
                           "Lehrende geben Hauptkategorien vor, Studierende ergänzen Unterkategorien.",
                           "Assigning passages of the transcripts to categories together, e.g. in a course: teachers set "
                           "main categories, students add subcategories."),
-         "subjects": de_en("Kodierende (Forschende, Mitglieder, Interviewende); mittelbar die "
-                           "interviewten Personen", "Coders (researchers, members, interviewers); "
-                           "indirectly the interviewees"),
+         "subjects": de_en("Kodierende (Forschende, Mitglieder, Interviewende) und Mitglieder mit der Rolle „Lesen“; "
+                           "mittelbar die interviewten Personen", "Coders (researchers, members, interviewers) and "
+                           "members with the role “Read”; indirectly the interviewees"),
          "data": de_en("Je Auswertung Name und Forschungsfrage; Kategorien mit Name, Definition, Abgrenzung, Autor (Name, "
                        "Konto- oder Linknummer) und Zeit; Verlauf jeder Änderung und jedes Vorschlags mit Namen und Zeit; "
-                       "Mitglieder (Konto, Gruppe oder Interviewlink), je Interviewlink sein Recht zu kodieren. Im Interview die kodierten Stellen (Auswertung, Kategorie, "
+                       "Mitglieder (Konto, Gruppe oder Interviewlink) mit ihrer Rolle (Kodieren oder Lesen), je Interviewlink sein Recht zu kodieren. Im Interview die kodierten Stellen (Auswertung, Kategorie, "
                        "Position und Wortlaut der Stelle, Name, Zeit), fett hervorgehobene Stellen (Position, Wortlaut, Name, Zeit), die Antworten der gegenseitigen Probe (geprüfte "
                        "Stelle, gewählte Kategorie, Name, Zeit) und, wenn das Team sie zuteilt, wer welche Interviews und Kategorieblöcke prüft (Name), KI-Vorschläge (Stelle, Kategorie, kurze Begründung, wer "
                        "gefragt und wer übernommen oder verworfen hat; nur wo die Auswertung sie erlaubt, nur über den "
@@ -784,10 +801,10 @@ def _activities():
          "controller": researchers,
          "basis": de_en("Durchführung des Forschungsvorhabens oder der Lehrveranstaltung im Auftrag der Forschenden (Art. 6 "
                         "Abs. 1 lit. b oder e DSGVO, je nach Verhältnis zur Einrichtung); die Forschenden sorgen dafür, dass "
-                        "die Kodierenden zur Verschwiegenheit verpflichtet sind",
+                        "die Kodierenden und Lesenden zur Verschwiegenheit verpflichtet sind",
                         "Carrying out the research project or course on behalf of the researchers (Art. 6(1)(b) or (e) GDPR, "
-                        "depending on the relation to the institution); the researchers make sure the coders are bound to "
-                        "confidentiality")},
+                        "depending on the relation to the institution); the researchers make sure the coders and readers are "
+                        "bound to confidentiality")},
         {"name": de_en("Teilnehmerbildschirm im Interview", "Participant screen in the interview"),
          "purpose": de_en("Die interviewte Person löst eine Aufgabe des Leitfadens oder füllt den Kurzfragebogen auf "
                           "ihrem eigenen Gerät aus, auch im Videogespräch.", "The interviewee solves a task of the guide or "

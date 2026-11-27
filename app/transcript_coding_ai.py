@@ -76,7 +76,7 @@ def state(project, who):
     from app import ai_access
     from app.models import User
 
-    if not project.ai_allowed or who.user_id is None:
+    if not project.ai_allowed or who.user_id is None or who.reads:  # a reader asks for no suggestions
         return "off"
     user = db.session.get(User, who.user_id)
     if user is None or not ai_access.ai_on(user):

@@ -45,7 +45,7 @@ def purge():
 
 
 def may_change(who, memo):
-    return who.team or (memo.author_key and memo.author_key == who.key)
+    return who.team or bool(who.key and memo.author_key and memo.author_key == who.key)  # a reader (no key): none
 
 
 def _rows(project, who):

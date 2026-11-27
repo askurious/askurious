@@ -319,6 +319,8 @@ def notices(project, who):
     analysis this ran up to 200 times over all interviews with all their passages (Ralf 2026-11-20, "Seiten öffnen
     langsam")."""
     out = []
+    if not who.key:  # a reader has no passages
+        return out
     events = list(db.session.scalars(db.select(CodingEvent).filter_by(project_id=project.id)
                                      .where(CodingEvent.kind.in_(("merged", "changed", "moved", "recoded")))
                                      .order_by(CodingEvent.id.desc()).limit(200)))
@@ -417,7 +419,7 @@ def changed_since(project, event):
 def may_take_back_move(project, event, who):
     """"Zurücknehmen" of a move in the history: the team, the category's author and whoever moved it (Ralf
     2026-10-29), while it is not taken back yet."""
-    if event.kind != "moved" or (event.data or {}).get("undone"):
+    if event.kind != "moved" or (event.data or {}).get("undone") or who.reads:
         return False
     cat = db.session.get(CodingCategory, event.category_id) if event.category_id else None
     if cat is None or cat.removed_at is not None or cat.merged_into is not None:
@@ -1628,7 +1630,7 @@ def _matrix(project, who):
 @bp.route("/<code>/interviews/coding/<int:pid>/matrix")
 @signed_in_or_coder
 def matrix(code, pid):
-    survey, project, who = _in(code, pid)
+    survey, project, who = _in(code, pid, coder=request.args.get("format") == "csv")  # a reader: the page, no file
     cats, rows, cells = _matrix(project, who)
     if request.args.get("format") == "csv":
         from app.export import safe_text
@@ -1754,8 +1756,9 @@ def answer(code, pid, eid, answer):
 @bp.route("/<code>/interviews/coding/<int:pid>/check", methods=["GET", "POST"])
 @signed_in_or_coder
 def check(code, pid):
-    """The mutual check: a passage someone else coded, without its category; the actor chooses one."""
-    survey, project, who = _in(code, pid)
+    """The mutual check: a passage someone else coded, without its category; the actor chooses one. A step of
+    coding: not for the role "Lesen"."""
+    survey, project, who = _in(code, pid, coder=True)
     if request.method == "POST":
         row = db.session.get(Response, request.form.get("rid", type=int) or 0)
         if row is None or row.id not in {r.id for r in interviews(project, who)}:
