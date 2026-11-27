@@ -130,7 +130,7 @@ def test_w6_segments_explain_starts_and_the_smallest_segment(app, client, survey
 
         res = segments.load(db.session.get(Item, 2))
         assert len(res["pids"]) == 80 and max(s["K"] for s in res["solutions"]) > 1 and res["suggested"] == 1
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "die besten 3 bis zur Konvergenz gerechnet; stabil, wenn mindestens 2 dieser 3 dasselbe Optimum finden" in html
     assert "Kein Vorschlag über 1 Segment möglich, weil jedes Segment mindestens 50 Personen braucht" in html
 
