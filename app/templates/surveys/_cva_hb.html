@@ -9,7 +9,7 @@
 {% set hb_section = hb_section if hb_section is defined and hb_section else "main" %}
 {% set hb_now = h.state == "current" and res %}
 {% if hb_section == "main" %}
-<section class="hb-part"{% if hb_now %} data-hb-current{% endif %} id="hb-part-{{ e.item.id }}" data-hb-item="{{ e.item.id }}" data-hb-url="{{ url_for('surveys.results', survey_id=survey.id) }}">
+<section class="hb-part"{% if hb_now %} data-hb-current{% endif %} id="hb-part-{{ e.item.id }}" data-hb-item="{{ e.item.id }}" data-hb-url="{{ part_url|default(url_for('surveys.results', survey_id=survey.id)) }}">
 <h3 class="res-group-head" id="hb-{{ e.item.id }}">{{ de_en("Teilnutzen je Person (Hierarchical Bayes)", "Part-worths per person (hierarchical Bayes)") }}{{ fn("cva_hb") }}</h3>
 {% if h.state == "running" %}
 {% include "surveys/_hb_running.html" %}

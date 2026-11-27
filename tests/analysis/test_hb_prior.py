@@ -155,7 +155,7 @@ def test_hierarchical_prior_recovers_a_small_and_a_large_spread():
 
 def test_choice_on_the_results_page_and_the_key(app, client, survey):
     with_dummies(app, client, n=20)
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert 'name="prior"' in html and "Priori der Streuung zwischen Personen" in html
     assert "weit (Standard; Rossi et al., 2005)" in html and "Warum? Weite, feste oder hierarchische Priori?" in html
     client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50"})
@@ -183,7 +183,7 @@ def test_choice_on_the_results_page_and_the_key(app, client, survey):
         assert simulator.without_sim(item.config) == config_before
         table = maxdiff_hb.pool_table(item.survey, second["pool"])
         assert (segments.model_input(item, table)["key"] if segments.model_input(item, table) else None) == lc_key
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert '<option value="hw" selected>' in html and "Priori der Streuung hierarchisch (Huang &amp; Wand, 2013)" in html
     assert "Huang, A., &amp; Wand, M. P. (2013)" in html                    # in the sources of the page
     book = client.get("/surveys/1/export/codebook.csv?source=dummy").data.decode("utf-8-sig")
@@ -262,12 +262,12 @@ def test_wide_choice_on_the_results_page(app, client, survey):
     """The options in their order, the wide one selected by default; the stored value "wide" of a question from before
     the new default is read as the default; a value outside the keys changes nothing."""
     with_dummies(app, client, n=20)
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert '<option value="wide" selected>' in html and '<option value="iw">' in html and '<option value="hw">' in html
     assert html.index('value="wide"') < html.index('value="iw"') < html.index('value="hw"')
     assert "Rossi et al., 2005" in html
     client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50"})
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "Priori der Streuung weit (Rossi et al., 2005)" in html and "Hein, M., Kurz, P., &amp; Steiner, W. J. (2019)" in html
     book = client.get("/surveys/1/export/codebook.csv?source=dummy").data.decode("utf-8-sig")
     assert "weite Priori der Streuung" in next(line for line in book.splitlines() if line.startswith("md_hb_prob1"))
@@ -373,7 +373,7 @@ def test_prior_options_name_their_source(app, client, survey):
     """The options cite their source in APA style, author and year (Ralf, 2026-11-24); the default is the wide one,
     the fixed prior names none, since its expectation is a Festlegung of Askurious."""
     with_dummies(app, client, n=12)
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "weit (Standard; Rossi et al., 2005)</option>" in html and ">fest</option>" in html
     assert "hierarchisch (Huang &amp; Wand, 2013)</option>" in html
 
@@ -395,7 +395,7 @@ def test_results_of_the_former_default_go_stale_and_come_back_with_the_fixed_pri
         item = db.session.get(Item, 2)
         assert maxdiff_hb.prior_of(item) == "wide" and maxdiff_hb.current(item) is None
         assert maxdiff_hb.load(item)["key"] == old["key"]                       # still stored
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "keine aktuelle HB-Schätzung" in html and "eine andere Priori" in html
     with app.app_context():
         from app import maxdiff_hb

@@ -1,10 +1,10 @@
 """Estimations on the results page: hierarchical Bayes, latent classes, omega and the market simulator."""
-from flask import abort, current_app, flash, redirect, render_template, request, url_for
+from flask import abort, current_app, flash, redirect, render_template, request
 from flask_login import current_user, login_required
 
 from app.extensions import db
 from app.lang import de_en
-from app.surveys.base import bp, data_pool, get_survey
+from app.surveys.base import analysis_url, bp, data_pool, get_survey
 
 
 PRIOR_TYPES = ("maxdiff", "conjoint", "acbc", "paired")  # HB by app/hb.py, with the choice of the prior (as maxdiff_hb)
@@ -67,7 +67,7 @@ def results_hb(survey_id, item_id):
     flash(message, "success" if state in ("started", "current") else "error")
     args = {"source": pool["sources"], **({"all": "1"} if pool["all"] else {}),
             **({"drop": "1"} if pool["drop"] else {})}
-    return redirect(url_for("surveys.results", survey_id=survey.id, **args) + f"#hb-{item.id}")
+    return redirect(analysis_url(survey, item.id, f"hb-{item.id}", **args))
 
 
 @bp.route("/<sid:survey_id>/results/hb/<int:item_id>/scale", methods=["POST"])
@@ -91,7 +91,7 @@ def results_hb_scale(survey_id, item_id):
         return jsonify(state="shown", message="", ok=True)
     args = {"source": request.form.getlist("source") or ["real"], **({"all": "1"} if request.form.get("all") else {}),
             **({"drop": "1"} if request.form.get("drop") else {})}
-    return redirect(url_for("surveys.results", survey_id=survey.id, **args) + f"#hb-{item.id}")
+    return redirect(analysis_url(survey, item.id, f"hb-{item.id}", **args))
 
 
 @bp.route("/<sid:survey_id>/results/hb/<int:item_id>/status")
@@ -139,7 +139,7 @@ def _lc_back(survey, item, form, message=None, error=False):
     if message:
         flash(message, "error" if error else "success")
     args = {k: form.getlist(k) for k in ("source", "all", "drop", "gewichtet") if form.get(k)}
-    return redirect(url_for("surveys.results", survey_id=survey.id, **args) + f"#lc-{item.id}")
+    return redirect(analysis_url(survey, item.id, f"lc-{item.id}", **args))
 
 
 def _lc_part(survey, item_id, key, kept, run, f):
@@ -180,7 +180,7 @@ def _lc_part(survey, item_id, key, kept, run, f):
     entry[kind]["lc"] = view
     if kept is not None and key:
         results_store.save(survey, key, data, f, basis=key)
-    response = make_response(render_template("surveys/_segments_part.html", survey=survey, e=entry, l=view, f=f,
+    response = make_response(render_template("surveys/_segments_part.html", survey=survey, part_url=request.path, e=entry, l=view, f=f,
                                               notes=res.footnotes(res.page_sources(data))))
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -328,7 +328,7 @@ def _hb_part(survey, item_id, kept, run, f):
     kind = next((k for k in ("maxdiff", "cbc", "acbc", "paired", "cva") if entry and (entry.get(k) or {}).get("hb")), None)
     if kind is None:
         abort(404)
-    response = make_response(render_template("surveys/_hb_part.html", survey=survey, e=entry, kind=kind, f=f,
+    response = make_response(render_template("surveys/_hb_part.html", survey=survey, part_url=request.path, e=entry, kind=kind, f=f,
                                               notes=res.footnotes(res.page_sources(data))))
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -358,7 +358,7 @@ def _sim_part(survey, item_id, kept, run, f):
                        data.get("weighting") if f["weighted"] else None, survey.can(current_user, "editor"))
     if s is None:
         abort(404)
-    response = make_response(render_template("surveys/_simulator_part.html", survey=survey, s=s,
+    response = make_response(render_template("surveys/_simulator_part.html", survey=survey, part_url=request.path, s=s,
                                               notes=res.footnotes(simulator.sources({item.id: s}))))
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -392,7 +392,7 @@ def _sim_back(survey, item, message=None, error=False, **extra):
     args = {}
     for k, v in keep:
         args.setdefault(k, []).append(v)
-    return redirect(url_for("surveys.results", survey_id=survey.id, **args, sim=item.id, **extra) + f"#sim-{item.id}")
+    return redirect(analysis_url(survey, item.id, f"sim-{item.id}", **args, sim=item.id, **extra))
 
 
 @bp.route("/<sid:survey_id>/results/sim/<int:item_id>/save", methods=["POST"])
@@ -462,7 +462,7 @@ def _ww_back(survey, item, form, message=None, error=False, anchor="ww"):
     if message:
         flash(message, "error" if error else "success")
     args = {k: form.getlist(k) for k in ("source", "all", "drop") if form.get(k)}
-    return redirect(url_for("surveys.results", survey_id=survey.id, **args) + f"#{anchor}-{item.id}")
+    return redirect(analysis_url(survey, item.id, f"{anchor}-{item.id}", **args))
 
 
 @bp.route("/<sid:survey_id>/results/ww/<int:item_id>", methods=["POST"])

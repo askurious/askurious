@@ -234,7 +234,7 @@ def test_cbc_stores_trace_shows_line_and_runs_longer(app, client, survey, monkey
         assert res["ess_min"] == pytest.approx(min(res["ess"] + [res["ess_ll"], res["ess_shown"], res["ess_sigma_min"]]),
                                                abs=0.11)
         assert res["ess_min"] < 400 and not res["diag_ok"] and res["converged"] is False   # 200 draws never do
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Konvergenz der Kette" in html and 'class="hb-trace-line"' in html and "<polyline" in html
     # the status line names R̂ max. and ESS min. ("R̂ max." as plain text is only in the note when R̂ itself fails,
     # which depends on the design drawn at random: about 1 in 20 runs it does not)
@@ -271,7 +271,7 @@ def test_cbc_stores_trace_shows_line_and_runs_longer(app, client, survey, monkey
     computed = []
     real = results.compute
     monkeypatch.setattr(results, "compute", lambda *a, **k: computed.append(1) or real(*a, **k))
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert not computed
     # four chains since 2026-11-24 (app/hb_chains.py): each the full burn-in and a quarter of the iterations
     assert "<strong>fertig</strong>" in html and "4 Ketten mit je 800 Burn-in- und 200 weiteren Iterationen" in html
@@ -310,7 +310,7 @@ def test_button_for_a_passing_result_only_with_the_hint(app, client, survey, hin
                     # no hint on the individual utilities (the short test chain may give one)
                     "person_rhat_flagged": 0, "person_rhat_share": 0.0})
         maxdiff_hb._write(maxdiff_hb._paths(item)[0], res)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Konvergenz der Kette" in html and "hb-conv-note" not in html and "hb-conv-ok" in html
     section = html.split("Konvergenz der Kette")[1].split("Hierarchical Bayes (HB-MNL)")[0]
     if hint:
@@ -338,7 +338,7 @@ def test_old_format_counts_as_stale_once(app, client, survey):
                if k not in ("ll_trace", "rhat", "ess", "ess_ll", "rhat_max", "ess_min", "diag_ok", "geweke_ok")}
         maxdiff_hb._write(maxdiff_hb._paths(item)[0], {**old, "format": 6})
         assert conjoint_hb.current(item) is None
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Individuelle Nutzen schätzen (Hierarchical Bayes)" in html and "Konvergenz der Kette" not in html
 
 
@@ -358,7 +358,7 @@ def test_maxdiff_judges_statement_means_and_thins_trace(app, client, survey):
         assert len(res["ll_trace"]) == 500                       # thinned for storage
         assert len(res["rhat"]) == len(res["est"]) == 8          # one per statement, not the threshold
         assert all(v is None or v > 0.99 for v in res["rhat"])
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert 'class="hb-trace-line"' in html and "je Populationsmittel (Aussagen)" in html
     assert "für die Grafik auf 500 Punkte ausgedünnt" in html
 
@@ -378,5 +378,5 @@ def test_acbc_gets_the_same_check(app, client, survey):
 
         res = conjoint_hb.load(db.session.get(Item, 2))
         assert res["type"] == "acbc" and len(res["rhat"]) == len(res["mu"]) and len(res["ll_trace"]) == res["kept"]
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Konvergenz der Kette" in html and "Neu schätzen mit doppelter Länge" in html

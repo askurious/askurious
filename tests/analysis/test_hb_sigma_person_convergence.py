@@ -125,7 +125,7 @@ def test_cbc_stores_and_shows_sigma_and_the_person_hint(app, client, survey):
         assert res["rhat_sigma_max"] is not None and res["ess_sigma_min"] is not None
         assert res["person_rhat_checked"] == len(res["pids"]) and res["person_rhat_share"] is not None
         assert res["rhat_max"] >= res["rhat_sigma_max"] and res["ess_min"] <= res["ess_sigma_min"]
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Varianzen zwischen den Personen (Diagonale von Σ)" in html
     assert 'class="muted small hb-person-rhat"' in html and "Individuelle Nutzen (nur Hinweis)" in html
     book = client.get("/surveys/1/export/codebook.csv").data.decode("utf-8-sig")
@@ -142,7 +142,7 @@ def test_person_hint_offers_the_longer_run_once_and_reaches_the_simulator(app, c
     _rewrite(app, lambda r: {**r, "diag_ok": True, "diag_complete": True, "converged": True, "geweke_ok": True,
                              "geweke_ll_hint": False, "rhat_max": 1.0, "ess_min": 900,
                              "person_rhat_flagged": 6, "person_rhat_checked": 20, "person_rhat_share": 0.3})
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     section = html.split("Konvergenz der Kette")[1].split("Hierarchical Bayes (HB-MNL)")[0]
     assert "hb-conv-note" not in html and "30,0 %" in section and "Mehr als 5 %" in section
     assert html.count('name="longer" value="1"') == 1 and "Neu schätzen mit doppelter Länge" in section
@@ -156,7 +156,7 @@ def test_person_hint_offers_the_longer_run_once_and_reaches_the_simulator(app, c
         notes = simulator._notes({"hb": {"state": "current", "result": {"convergence": conv, "warnings": []}}}, "hb")
         assert conv["person_note"] in notes
     _rewrite(app, lambda r: {**r, "person_rhat_flagged": 1, "person_rhat_share": 0.05})
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "5,0 %" in html and "Mehr als 5 %" not in html and 'name="longer" value="1"' not in html
 
 
@@ -172,7 +172,7 @@ def test_stored_result_without_the_new_values_shows_as_before(app, client, surve
         assert conv["ok"] is ok and conv["rhat_sigma_max"] is None and conv["person_rhat_share"] is None
         assert not conv["person_hint"] and conv["person_note"] is None and (conv["longer"] is None) is ok
         assert "individuelle Nutzen" not in hc.describe(old, "de") and "Populationsmittel und" not in hc.describe(old, "de")
-        html = client.get("/surveys/1/results").data.decode()
+        html = client.get("/surveys/1/results/analysis/2").data.decode()
         assert "Konvergenz der Kette" in html and "Diagonale von Σ):" not in html and "hb-person-rhat" not in html
         assert ("hb-conv-ok" in html) is ok and ('name="longer" value="1"' in html) is (not ok)
         assert client.get("/surveys/1/export/codebook.csv").status_code == 200

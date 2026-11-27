@@ -112,7 +112,7 @@ def test_c1_rest_weak_price_note_on_the_page(app, client, survey, price_beta, we
     with mock.patch.object(conjoint_design, "generate", lambda *a, **kw: generate(*a, **{**kw, "seed": 3})):
         setup(client, price_attr=True)
     cbc_simulate(app, 60, price_beta=price_beta)                           # z -2.35 and -16.8 with this design
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert ("Preiskoeffizient nur knapp bestimmt (|z| = 2,4)" in html) is weak
     assert "Zahlungsbereitschaft" in html and ("Grenze |z| = 4 von Askurious festgelegt" in html) is weak
     assert "Hole, A. R. (2007)" in html
@@ -135,7 +135,7 @@ def test_c1_rest_weak_price_note_per_segment(app, client, survey):
         assert view["price"]["weak"] == [cm.weak_price(z) for z in view["price"]["z"]]
     # every segment with a WTP counts as only just determined when the limit is set very high: the note names them
     with mock.patch.object(cm, "WTP_WEAK_Z", 1e9):
-        html = client.get("/surveys/1/results").data.decode()
+        html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Preiskoeffizient nur knapp bestimmt in Segment 1 (|z| = " in html
 
 

@@ -147,12 +147,12 @@ def wide(client, query="?source=dummy"):
 
 def test_results_button_estimate_and_export(app, client, survey):
     with_dummies(app, client)
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "Individuelle Nutzen (Hierarchical Bayes)" in html and "Individuelle Nutzen schätzen (Hierarchical Bayes)" in html
     assert "md_hb_util1" not in client.get("/surveys/1/export/data.csv?source=dummy").data.decode()   # nothing yet
     r = client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50"})
     assert r.status_code == 302 and "source=dummy" in r.location and r.location.endswith("#hb-2")
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "<strong>fertig</strong>" in html and "Individuelle Nutzen schätzen (Hierarchical Bayes)" not in html
     assert "md-boxes" in html and "md-rlh-chart" in html and "Top 3" in html and "mögliche Zufallsklicker" in html
     assert "Posterior-Intervall" in html and "Akzeptanzrate" in html and "Konvergenz" in html
@@ -218,7 +218,7 @@ def test_stale_result_after_new_data(app, client, survey):
         dummy.generate(db.session.get(Survey, 1), 3, seed=6)
         db.session.commit()
         assert maxdiff_hb.current(db.session.get(Item, 2)) is None
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     # the estimate for the old data is no longer shown: a note and the button to estimate again
     assert "keine aktuelle HB-Schätzung" in html and "Individuelle Nutzen schätzen (Hierarchical Bayes)" in html
     assert "md-boxes" not in html and "md-rlh-chart" not in html and "<strong>fertig</strong>" not in html
@@ -226,10 +226,10 @@ def test_stale_result_after_new_data(app, client, survey):
     assert "md_hb" not in client.get("/surveys/1/export/codebook.csv?source=dummy").data.decode()
     # estimated again: current; without the speeders (fast half at 95 % of the median) it is other data
     client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50"})
-    assert "<strong>fertig</strong>" in client.get("/surveys/1/results?source=dummy").data.decode()
+    assert "<strong>fertig</strong>" in client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     client.post("/surveys/1/quality", data={"speeder": "95"})
-    html = client.get("/surveys/1/results?source=dummy&drop=1").data.decode()
-    assert "ausgeschlossen" in html and "keine aktuelle HB-Schätzung" in html and "md-boxes" not in html
+    html = client.get("/surveys/1/results/analysis/2?source=dummy&drop=1").data.decode()
+    assert "Markierte" in html and "keine aktuelle HB-Schätzung" in html and "md-boxes" not in html
 
 
 def test_background_thread_and_markers(app, client, survey):
@@ -239,7 +239,7 @@ def test_background_thread_and_markers(app, client, survey):
     for t in threading.enumerate():
         if t.name == "hb-item-2":
             t.join(60)
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "<strong>fertig</strong>" in html
     with app.app_context():
         from app import maxdiff_hb
@@ -252,7 +252,7 @@ def test_background_thread_and_markers(app, client, survey):
         assert maxdiff_hb.running(item)["state"] == "aborted"
         now = datetime.now(timezone.utc).isoformat()
         maxdiff_hb._write(marker_path, {"state": "running", "started": now, "beat": now, "progress": 0.4})
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "data-hb-running" in html and "40 %" in html
     # the bar on the page follows the estimation without reloading the results
     assert 'data-url="/surveys/1/results/hb/2/status"' in html and 'aria-valuenow="40"' in html and 'style="width:40%"' in html
@@ -262,7 +262,7 @@ def test_background_thread_and_markers(app, client, survey):
     with app.app_context():
         maxdiff_hb._write(marker_path, {"state": "error", "started": now, "message": "ValueError: kaputt"})
     assert client.get("/surveys/1/results/hb/2/status").get_json()["state"] == "error"
-    assert "ValueError: kaputt" in client.get("/surveys/1/results?source=dummy").data.decode()
+    assert "ValueError: kaputt" in client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     with app.app_context():
         os.remove(marker_path)
     assert client.get("/surveys/1/results/hb/2/status").get_json() == {"state": "done"}   # the page reloads

@@ -34,7 +34,7 @@ def disconnected_dummies(app, client, n=30):
 
 def test_h1_disconnected_maxdiff_gets_no_hb_estimate(app, client, survey):
     disconnected_dummies(app, client)
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "Die Aussagen zerfallen in 2 Gruppen" in html and "1, 2, 3, 4 | 5, 6, 7, 8" in html
     assert "eine längere Kette ändert daran nichts" in html
     assert "Individuelle Nutzen schätzen (Hierarchical Bayes)" not in html and "Für eine HB-Schätzung fehlen Daten" not in html
@@ -57,14 +57,14 @@ def test_h1_existing_estimate_of_a_disconnected_design_is_not_shown(app, client,
     disconnected_dummies(app, client)
     monkeypatch.setattr(maxdiff_hb, "components", lambda n, versions, answers: [list(range(n))])
     client.post("/surveys/1/results/hb/2", data={"source": "dummy"})
-    assert "<strong>fertig</strong>" in client.get("/surveys/1/results?source=dummy").data.decode()
+    assert "<strong>fertig</strong>" in client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "md_hb_util1" in client.get("/surveys/1/export/data.csv?source=dummy").data.decode()
     monkeypatch.undo()
     maxdiff_hb._FITS.clear()  # the verdicts are kept per process; a new program (here: the check back on) is a new process
     from app import results_store
 
     monkeypatch.setattr(results_store, "_program", "a new version")  # ... with another program (stored with the estimate, V1)
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "Die Aussagen zerfallen in 2 Gruppen" in html and "eine längere Kette ändert daran nichts" in html
     assert "<strong>fertig</strong>" not in html and "md-boxes" not in html and "keine aktuelle HB-Schätzung" not in html
     assert "md_hb_util1" not in client.get("/surveys/1/export/data.csv?source=dummy").data.decode()
@@ -139,7 +139,7 @@ def test_h3_conjoint_names_constant_and_price_separately(app, client, survey):
         view = conjoint_hb.summary(item, res, "de")
         assert view["sigma_mean"] == res["sigma_util"] and view["sigma_asc"] == res["sigma_asc"]
         assert view["sigma_price_sd"] == pytest.approx(math.sqrt(res["sigma_price"]))
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "mittlere Varianz der nullzentrierten Teilnutzen zwischen den Personen" in html
     assert "Varianz der Konstante" in html and "SD des Preiskoeffizienten" in html
     assert "Erwartungswert 1 je Parameter" not in html and "(L − 1)/L bei L Stufen" in html

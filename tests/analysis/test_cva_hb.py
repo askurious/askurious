@@ -47,11 +47,11 @@ def test_button_estimate_results_simulator_export_and_methods(app, client, surve
 
         assert dummy.generate(db.session.get(Survey, 1), 25, seed=5) == 25
         db.session.commit()
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "Teilnutzen je Person schätzen (Hierarchical Bayes)" in html
     r = client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50"})
     assert r.status_code == 302 and r.location.endswith("#hb-2")
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "<strong>fertig</strong>" in html and "Teilnutzen je Person (Hierarchical Bayes)" in html
     assert "Lenk, P. J." in html and "Grundlage: die HB-Teilnutzen" in html
     with app.app_context():
@@ -64,7 +64,7 @@ def test_button_estimate_results_simulator_export_and_methods(app, client, surve
     assert rows[0]["wo_hb_miete_1"] != "" and rows[0]["wo_hb_r2"] != "" and rows[0]["wo_hb_constant"] != ""
     book = client.get("/surveys/1/export/codebook.csv?source=dummy").data.decode("utf-8-sig")
     assert "Hierarchical-Bayes-Regression" in book
-    part = client.get("/surveys/1/results?source=dummy&hb_part=2", headers={"X-Requested-With": "fetch"})
+    part = client.get("/surveys/1/results/analysis/2?source=dummy&hb_part=2", headers={"X-Requested-With": "fetch"})
     assert part.status_code == 200 and "hb-quality-2" in part.data.decode()
     methods = client.get("/surveys/1/methods?source=dummy").data.decode()
     assert "Hierarchical-Bayes-Regression" in methods

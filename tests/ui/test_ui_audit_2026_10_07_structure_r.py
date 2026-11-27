@@ -102,7 +102,7 @@ def test_s6_s8_comparisons_folded_with_the_table_on_top_and_shares_per_group(app
 def test_s7_choice_model_result_first_then_simulator_then_folds(app, client, survey):
     cbc_setup(client, price_attr=True, none=True)
     cbc_simulate(app, 120, none_asc=-0.5)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     q = html[html.index('class="acbc-results"'):]
     top = q.index("Wichtigkeit und Teilnutzen")
     hb = q.index('class="hb-part"')
@@ -110,12 +110,13 @@ def test_s7_choice_model_result_first_then_simulator_then_folds(app, client, sur
     counts = q.index("Zählwerte: Wahlanteile je Stufe")
     detail = q.index('class="res-dist res-choice-fold cm-fold"')
     quality = q.index('id="quality-2"')
-    assert top < hb < sim < counts < detail < quality
+    # the page of the analysis: result, simulator, model quality, then the details (counts, the logit in detail)
+    assert top < hb < sim < quality < counts < detail
     # every figure is still there: counts, fit, coefficients, method, folded
     assert "acbc-counts" in q[counts:detail] and "Zufallswert" in q[counts:detail]
-    assert "McFadden-" in q[detail:quality] and "Preiskoeffizient" in q[detail:quality]
-    assert "Aggregierte Schätzung für die ganze Stichprobe" in q[detail:quality]
-    assert 'class="learn-why learn-method"' in q[detail:quality]
+    assert "McFadden-" in q[detail:] and "Preiskoeffizient" in q[detail:]
+    assert "Aggregierte Schätzung für die ganze Stichprobe" in q[detail:]
+    assert 'class="learn-why learn-method"' in q[detail:]
     # the warnings of the model on top, with the part-worths
     assert "cm-importance-bars" in q[top:hb] and "cm-utilities" in q[top:hb]
     assert "sim-pointer" not in q
@@ -128,7 +129,7 @@ def test_s7_hb_part_brings_the_result_and_its_quality(app, client, survey):
     app.config.update(HB_FAST)
     simulate_segments(app, 60, none_asc=-0.5)
     client.post("/surveys/1/results/hb/2", data={"source": "real", "speeder": "50"})
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     q = html[html.index('class="acbc-results"'):]
     # a current HB estimation on top, the aggregate logit whole in its fold
     hb = q.index('class="hb-part" data-hb-current')
@@ -138,5 +139,5 @@ def test_s7_hb_part_brings_the_result_and_its_quality(app, client, survey):
     quality = q[q.index('id="quality-2"'):]
     assert 'class="hb-quality"' in quality and "md-rlh-chart" in quality and "Akzeptanzrate" in quality
     assert "Hierarchical Bayes (HB-MNL): Jede Person hat eigene Teilnutzen" in quality
-    part = client.get("/surveys/1/results?hb_part=2", headers={"X-Requested-With": "fetch"}).data.decode()
+    part = client.get("/surveys/1/results/analysis/2?hb_part=2", headers={"X-Requested-With": "fetch"}).data.decode()
     assert 'class="hb-part" data-hb-current' in part and 'class="hb-quality"' in part

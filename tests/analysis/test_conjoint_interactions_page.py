@@ -50,7 +50,7 @@ def test_search_confirm_take_over_and_use_everywhere(app, client, survey):
     setup(client, price_attr=True, tasks=10, versions=6)
     app.config.update(HB_FAST)
     simulate(app, 160)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Wechselwirkungen zwischen Merkmalen" in html and "Suche starten" in html
     assert 'class="res-dist res-choice-fold ww-part" id="ww-2" data-ww-item="2">' in html     # closed: nothing yet
     client.post("/surveys/1/results/hb/2", data={"source": "real"})
@@ -69,7 +69,7 @@ def test_search_confirm_take_over_and_use_everywhere(app, client, survey):
         # interaction columns correlate with the true ones in the design (a limit of the search pair by pair)
         ids = [a["id"] for a in item.config["attributes"]]
         assert "pids" not in stored and isinstance(stored["persons"], int)  # no values per person
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     block = html.split('id="ww-2"', 1)[1].split("</details>", 1)[0]
     assert " open>" in block[:80] and "bestätigt" in block and "Suche neu starten" in block
     assert block.count("data-ww-row") == 3 and 'data-dialog-open="ww-dlg-2-' in block
@@ -84,7 +84,7 @@ def test_search_confirm_take_over_and_use_everywhere(app, client, survey):
     with app.app_context():                                   # the "?" of the learning aids, switched on on "Konto"
         db.session.scalar(db.select(User).filter_by(orcid="0000-0000-0000-001X")).learning_aids = True
         db.session.commit()
-    aided = client.get("/surveys/1/results").data.decode()
+    aided = client.get("/surveys/1/results/analysis/2").data.decode()
     for key in ("ww_cell", "ww_comb", "ww_shown", "ww_wald", "ww_ll", "ww_suggest", "ww_confirm"):
         assert f'#{key}"' in aided, key
     # the select: every task once is the default, the random divisions name their source
@@ -112,7 +112,7 @@ def test_search_confirm_take_over_and_use_everywhere(app, client, survey):
         maxdiff_hb._write(ww._paths(item)[0], tasks)
         w = methods._interactions(item, None)
         assert "Kreuzvalidierung über alle 10 Aufgaben" in methods._ww_de({"ww": w})
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Kreuzvalidierung über alle 10 Aufgaben (jede Aufgabe einmal zurückgehalten): Δ LL = 0,05 je Person" in html
     assert "t(159) = 3,29, p &lt; ,001" in html and "einseitiger t-Test über die Personen" in html
     with app.app_context():
@@ -154,7 +154,7 @@ def test_search_confirm_take_over_and_use_everywhere(app, client, survey):
         V = choice_predict.draw_utilities({**params, "ww": []}, spans, [[0, 1, 0], [2, 1, 0]])
         diff = (U - V).mean(axis=(0, 1))
         assert diff[0] > 0.5 and diff[1] < -0.5
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert 'class="res-table ww-cells hb-ww"' in html and "Die Wichtigkeiten oben beruhen nur auf den Haupteffekten" in html
     assert "im HB-Modell" in html and ">Entfernen<" in html
     # the export: one column per combination, the same for everyone, with its codebook entry

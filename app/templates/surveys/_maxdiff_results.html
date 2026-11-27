@@ -4,18 +4,23 @@
    when a current estimation is there, else the aggregate MNL), then "Auswahl aus Aussagen"; folded the counts, the
    MNL in detail, the segments and the model quality. #}
 {% from "_macros.html" import one, signed, abbr %}
+{# an: the part the page of the analysis asks for (surveys/analysis.html): "head" the line of the basis, "main" importance and part-worths, "sim" the simulator, "segments", "quality", "details" #}
 {% set m = e.maxdiff %}
 {% set has_anchor = m.anchor_n > 0 %}
+{% if an == "head" %}
 {% if m.skipped %}<p class="flash flash-warning">{% if m.skipped != 1 %}{{ de_en("{n} Personen ausgelassen: Ihre Version gibt es im aktuellen Versuchsplan nicht mehr.", "{n} people left out: their version no longer exists in the current experimental design.", n=m.skipped) }}{% else %}{{ de_en("{n} Person ausgelassen: Ihre Version gibt es im aktuellen Versuchsplan nicht mehr.", "{n} person left out: their version no longer exists in the current experimental design.", n=m.skipped) }}{% endif %}</p>{% endif %}
+{% endif %}
 {% if m.persons %}
 {% set h = m.hb %}
 {% set hb_now = h and h.state == "current" and h.result %}
 {% set x = m.mnl %}
+{% if an == "head" %}
 <p class="muted small">{{ de_en("{p} Personen, {s} beantwortete Sets.", "{p} people, {s} answered sets.", p=m.persons, s=m.sets) }}</p>
+{% endif %}
 {# the probability scores of the aggregate MNL: on top without a current HB estimation, else in its fold #}
 {% macro mnl_main(on_top) %}{% set c = x.chart %}
 <div class="cm-main" data-cm-item="{{ e.item.id }}">
-{% if on_top %}<h3 class="res-group-head cm-main-head">{{ de_en("Wichtigkeit der Aussagen", "Importance of the statements") }} <span class="hint">{{ de_en("aggregiertes Logit-Modell ({mnl})", "aggregate logit model ({mnl})", html=True, mnl=term("mnl", abbr("mnl"))) }}</span>{{ fn("mnl") }}</h3>{% endif %}
+{% if on_top %}<h3 class="res-group-head cm-main-head">{{ de_en("Aggregiertes Logit-Modell ({mnl})", "Aggregate logit model ({mnl})", html=True, mnl=term("mnl", abbr("mnl"))) }}{{ fn("mnl") }}</h3>{% endif %}
 {% for w in x.warnings %}<p class="flash flash-warning">{{ w }}</p>{% endfor %}
 <p class="res-group-head">{{ de_en("Wahrscheinlichkeits-Scores", "Probability scores") }} <span class="hint">{{ de_en("Summe 100; Linie: 95-%-Intervall", "sum 100; line: 95% interval") }}{% if x.threshold %}{{ de_en("; gestrichelt: Schwelle „wirklich wichtig“ aus der Ankerfrage", "; dashed: threshold “really important” from the anchor question") }}{% endif %}</span></p>
 <div class="pw-scroll"><svg class="pw-chart md-chart" viewBox="0 0 {{ c.width }} {{ c.height }}" role="img" aria-label="{{ de_en('MaxDiff-Wahrscheinlichkeits-Scores', 'MaxDiff probability scores') }}">
@@ -54,12 +59,17 @@
 <p class="muted small">{{ de_en("Score: wie wahrscheinlich die Aussage in einem Set mit durchschnittlichen Aussagen als wichtigste gewählt wird, auf Summe 100 skaliert; eine Aussage mit 20 wird doppelt so wahrscheinlich gewählt wie eine mit 10.", "Score: how likely the statement is chosen as most important in a set of average statements, scaled to sum 100; a statement with 20 is twice as likely to be chosen as one with 10.") }}{{ fn("maxdiff") }}</p>
 </div>
 {% endmacro %}
+{% if an == "main" %}
 {% if x and x.disconnected %}
 <h3 class="res-group-head">{{ de_en("Aggregiertes Logit-Modell (MNL)", "Aggregate logit model (MNL)") }}{{ fn("mnl") }}</h3>
 {% for w in x.warnings %}<p class="flash flash-warning">{{ w }}</p>{% endfor %}
 {% elif x and not hb_now %}{{ mnl_main(true) }}{% endif %}
 {% if h %}{% with hb_section="main" %}{% include "surveys/_maxdiff_hb.html" %}{% endwith %}{% endif %}
-<div class="sim-slot" data-sim-slot="{{ e.item.id }}" data-sim-url="{{ url_for('surveys.results', survey_id=survey.id) }}">{% if sims and sims.get(e.item.id) %}{% with s=sims[e.item.id] %}{% include "surveys/_simulator.html" %}{% endwith %}{% endif %}</div>
+{% endif %}
+{% if an == "sim" %}
+<div class="sim-slot" data-sim-slot="{{ e.item.id }}" data-sim-url="{{ part_url|default(url_for('surveys.results', survey_id=survey.id)) }}">{% if sims and sims.get(e.item.id) %}{% with s=sims[e.item.id] %}{% include "surveys/_simulator.html" %}{% endwith %}{% endif %}</div>
+{% endif %}
+{% if an == "details" %}
 <details class="res-dist res-choice-fold">
   <summary>{{ de_en("Zählwerte: Best minus Worst je Aussage", "Counts: best minus worst per statement") }}</summary>
 <p class="muted small">{{ de_en("Score = (am wichtigsten − am wenigsten wichtig) / gezeigt, von −1 bis +1; die Balken gehen von der Nulllinie in der Mitte aus, negativ nach links, positiv nach rechts, auf einer Skala für alle Aussagen.", "Score = (most important − least important) / shown, from −1 to +1; the bars start from the zero line in the middle, negative to the left, positive to the right, on one scale for all statements.") }}</p>
@@ -96,14 +106,18 @@
   </div>
 </details>
 {% endif %}
-{% if m.lc %}{% with l=m.lc %}{% include "surveys/_segments_fold.html" %}{% endwith %}{% endif %}
+{% endif %}
+{% if an == "segments" %}
+{% if m.lc %}{% with l=m.lc %}{% include "surveys/_segments.html" %}{% endwith %}{% endif %}
+{% endif %}
+{% if an == "quality" %}
 {% if m.holdout or h %}
-<details class="res-dist res-choice-fold" id="quality-{{ e.item.id }}">
-  <summary>{{ de_en("Modellgüte", "Model quality") }} <span class="hint">{% if m.holdout %}{{ de_en("Holdout-Sets", "holdout sets") }}{% if h %}, {% endif %}{% endif %}{% if h %}{{ de_en("Anpassung je Person, Konvergenz", "fit per person, convergence") }}{% endif %}</span></summary>
   {% if m.holdout %}{% with ho=m.holdout %}{% include "surveys/_holdout_results.html" %}{% endwith %}{% endif %}
   {% if h %}{% with hb_section="quality" %}{% include "surveys/_maxdiff_hb.html" %}{% endwith %}{% endif %}
-</details>
+{% endif %}
 {% endif %}
 {% else %}
+{% if an == "head" %}
 <p class="muted small">{{ de_en("Noch keine beantworteten Sets.", "No answered sets yet.") }}</p>
+{% endif %}
 {% endif %}

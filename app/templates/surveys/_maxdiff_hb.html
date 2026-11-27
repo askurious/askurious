@@ -18,8 +18,8 @@
 {% set hb_section = hb_section if hb_section is defined and hb_section else "main" %}
 {% set hb_now = h.state == "current" and res %}
 {% if hb_section == "main" %}
-<section class="hb-part"{% if hb_now %} data-hb-current{% endif %} id="hb-part-{{ e.item.id }}" data-hb-item="{{ e.item.id }}" data-hb-url="{{ url_for('surveys.results', survey_id=survey.id) }}">
-<h3 class="res-group-head" id="hb-{{ e.item.id }}">{% if hb_now %}{{ de_en("Wichtigkeit der Aussagen", "Importance of the statements") }} <span class="hint">{{ de_en("individuelle Nutzen (Hierarchical Bayes)", "individual utilities (hierarchical Bayes)") }}</span>{% else %}{{ de_en("Individuelle Nutzen (Hierarchical Bayes)", "Individual utilities (hierarchical Bayes)") }}{% endif %}{{ fn("hb") }}</h3>
+<section class="hb-part"{% if hb_now %} data-hb-current{% endif %} id="hb-part-{{ e.item.id }}" data-hb-item="{{ e.item.id }}" data-hb-url="{{ part_url|default(url_for('surveys.results', survey_id=survey.id)) }}">
+<h3 class="res-group-head" id="hb-{{ e.item.id }}">{{ de_en("Individuelle Nutzen (Hierarchical Bayes)", "Individual utilities (hierarchical Bayes)") }}{{ fn("hb") }}</h3>
 {% if h.state == "running" %}
 {% include "surveys/_hb_running.html" %}
 {% elif h.marker and h.marker.state == "error" %}

@@ -359,7 +359,7 @@ def test_results_page_scores(app, client, survey):
         assert next(r for r in m["rows"] if r["n"] == 2)["anchor"] == 1
         x = m["mnl"]                  # one person, fully separated: capped model
         assert x["ridge"] and x["rows"][0]["n"] in (1, 2) and x["rows"][-1]["n"] == 8 and x["threshold"]
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "md-res" in html and "+1,00" in html and "Individuelle Nutzen (Hierarchical Bayes)" in html
     assert "Aggregiertes Logit-Modell (MNL)" in html and "md-threshold" in html and "begrenzt" in html
     assert "über allen" in html and "unter allen" in html           # separated statements stand off the score scale

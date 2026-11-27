@@ -105,7 +105,7 @@ def test_counts_and_model_recover_part_worths(app, client, survey):
         assert all(abs(x - t) < 0.2 for x, t in zip(est[code], true)), (code, est[code])
     # the price attribute without the flag: effects-coded, falling with the price
     assert est["price"][0] > est["price"][1] > est["price"][2]
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Wahlanteile je Stufe" in html and "Aggregiertes Logit-Modell" in html and "Zahlungsbereitschaft" not in html
 
 
@@ -126,7 +126,7 @@ def test_price_attribute_gives_linear_term_and_wtp(app, client, survey):
     look = m["attributes"][0]["levels"]
     assert look[0]["wtp"] > 15 and look[2]["wtp"] < -15                  # 0.6 / 0.02 = 30 currency units
     assert abs(sum(a["importance"] for a in m["attributes"]) + m["price"]["importance"] - 1) < 1e-9
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Zahlungsbereitschaft" in html and "Konstante „Keine davon“" in html and "Preis <span" in html
 
 
@@ -183,7 +183,7 @@ def test_price_attribute_levels_as_centred_bars(app, client, survey):
     price = m["price_levels"]["levels"]
     assert [round(p["beta"] / m["price"]["beta"]) for p in price] == [-50, 0, 50]   # beta x (price - 100)
     assert len(m["charts"]) == len(m["attributes"]) + 1
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert html.count('class="pw-chart pw-wide"') == 3 and 'class="pw-neg"' in html and 'class="pw-pos"' in html
     assert "Koeffizient × (Preis − mittlerer Preis der Stufen)" in html and "nullzentriert" in html
 
@@ -233,7 +233,7 @@ def test_large_prices_show_a_readable_coefficient(app, client, survey):
     client.post(E + "/items/2", data=form)
     client.post(E + "/items/2/conjoint/design")
     simulate(app, 150, price_beta=-0.02)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     found = re.search(r"Preiskoeffizient je 1\.000 Währungseinheiten: (\S+) \(SE (\S+)\)", html)
     assert found and found.group(2) != "0,0000" and float(found.group(2).replace(",", ".")) > 0.001
 

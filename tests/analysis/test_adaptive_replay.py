@@ -230,7 +230,7 @@ def test_acbc_pages_write_the_shown_concepts_and_groups(app, client, survey, mon
         assert after["concepts"] == before["concepts"] and after["rounds"] == before["rounds"]
         assert after["winner"] == before["winner"]
     # D3: the confirmed rules do not enter the estimation, the results page says so next to the model
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Bestätigte Regeln (1 von 1 Personen" in html
 
 

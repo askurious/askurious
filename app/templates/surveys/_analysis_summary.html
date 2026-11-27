@@ -1,0 +1,38 @@
+{# A question of the conjoint family on the results page (restructuring of the results part, stage 1): the line of
+   people and tasks, the importance as bars (HB when a current estimation is there, else the aggregate model; MaxDiff
+   and paired comparison: the scores) and the way to the page of its analysis (surveys/analysis.html), which has
+   everything else. Needs: e (entry), survey; analysis_args (the pool and view of the address) on the results page. #}
+{% from "_macros.html" import pct, one %}
+{% from "_icons.html" import icon %}
+{% set kind = "cbc" if e.cbc else "acbc" if e.acbc else "aca" if e.aca else "cva" if e.cva else "maxdiff" if e.maxdiff else "paired" %}
+{% set p = e[kind] %}
+{% set h = p.hb if kind != "aca" else none %}
+{% set hb_now = h and h.state == "current" and h.result %}
+<div class="analysis-summary" data-analysis-summary="{{ e.item.id }}">
+{% with an="head" %}{% include "surveys/_" ~ kind ~ "_results.html" %}{% endwith %}
+{% set bars = [] %}
+{% if kind in ("maxdiff", "paired") %}
+  {% set model = p.mnl if kind == "maxdiff" else p.model %}
+  {% if hb_now and h.result.chart %}{% for r in h.result.chart.rows %}{% set _ = bars.append({"label": r.label, "value": r.score}) %}{% endfor %}
+  {% elif model and not model.disconnected %}{% for r in model.rows if not r.side %}{% set _ = bars.append({"label": r.label, "value": r.score}) %}{% endfor %}{% endif %}
+{% else %}
+  {% set src = h.result if hb_now and kind != "cva" else p.model %}
+  {% if src %}{% for a in src.attributes if a.importance is not none %}{% set _ = bars.append({"label": a.label, "value": a.importance}) %}{% endfor %}
+  {% if src.price and src.price.importance is not none %}{% set _ = bars.append({"label": src.price.label or de_en("Preis", "Price"), "value": src.price.importance}) %}{% endif %}{% endif %}
+{% endif %}
+{% if bars %}
+{% set top = bars|map(attribute="value")|max %}
+<p class="res-group-head">{% if kind == "maxdiff" %}{{ de_en("Wichtigkeit der Aussagen", "Importance of the statements") }}{% elif kind == "paired" %}{{ de_en("Werte der Optionen", "Values of the options") }}{% else %}{{ de_en("Wichtigkeit der Merkmale", "Importance of the attributes") }}{% endif %} <span class="hint">{% if hb_now and kind != "cva" %}{{ de_en("individuelle Nutzen (Hierarchical Bayes)", "individual utilities (hierarchical Bayes)") }}{% elif kind == "paired" %}{{ de_en("Bradley-Terry-Modell", "Bradley-Terry model") }}{% elif kind in ("aca", "cva") %}{{ de_en("Mittel der Werte je Person", "mean of the values per person") }}{% else %}{{ de_en("aggregiertes Logit-Modell", "aggregate logit model") }}{% endif %}</span></p>
+<ul class="plain res-bars cm-importance-bars">
+  {% for row in bars|sort(attribute="value", reverse=true) %}
+  <li><span class="res-bar-label">{{ row.label|truncate(70) }}</span>
+    <span class="res-bar"><span style="width: {{ ((row.value / top * 100) if kind in ("maxdiff", "paired") and top else row.value * 100)|round(1) }}%"></span></span>
+    <span class="res-bar-n">{{ one(row.value) if kind in ("maxdiff", "paired") else pct(row.value) }}</span></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if analysis_args is defined %}
+<p class="form-actions"><a class="button button-small" href="{{ url_for('surveys.results_analysis', survey_id=survey.id, item_id=e.item.id, **analysis_args) }}">{{ icon("chart", 16) }} {% if kind == "maxdiff" %}{{ de_en("Zur MaxDiff-Auswertung", "To the MaxDiff analysis") }}{% elif kind == "paired" %}{{ de_en("Zur Auswertung des Paarvergleichs", "To the analysis of the paired comparison") }}{% else %}{{ de_en("Zur Conjoint-Auswertung", "To the conjoint analysis") }}{% endif %}</a>
+  <span class="muted small">{{ de_en("Teilnutzen, Marktsimulator, Segmente und Modellgüte stehen auf einer eigenen Seite.", "Part-worths, market simulator, segments and model quality are on a page of their own.") if kind not in ("maxdiff", "paired") else de_en("Einzelheiten, Schätzungen und Modellgüte stehen auf einer eigenen Seite.", "Details, estimations and model quality are on a page of their own.") }}</span></p>
+{% endif %}
+</div>

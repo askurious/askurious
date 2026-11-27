@@ -3,7 +3,8 @@
    the survey is no heading here (UI audit 2026-10-04, R2). Actions that open a new window (Vorschau, Interview beginnen)
    stand at the right of this line, not among the tabs: the row of tabs holds pages only (G1, R1). #}
 {% set sub = sub_page is defined and sub_page %}
-{{ help_note(survey, active_tab if active_tab is defined else none) }}{# for "Hilfe zu dieser Seite" in the header (UI/UX audit 2026-10-16, 17) #}
+{# help_key: a page below a tab with a handbook section of its own (surveys/analysis.html) #}
+{{ help_note(survey, help_key if help_key is defined and help_key else active_tab if active_tab is defined else none) }}{# for "Hilfe zu dieser Seite" in the header (UI/UX audit 2026-10-16, 17) #}
 {# the title is drawn anew after a save (data-live, app.js redraw) only where it can be changed, the settings: on every
    other page that would load the whole page once more after each save (code review 2026-10-07, F3) #}
 {% set live_title = ' data-live="survey-title"'|safe if (active_tab is defined and active_tab == "settings" and not sub) else "" %}

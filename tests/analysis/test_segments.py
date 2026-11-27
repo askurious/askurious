@@ -113,8 +113,8 @@ def wide(client, query=""):
 
 def test_cbc_segments_button_page_choice_and_export(app, client, survey):
     truth = cbc_with_segments(app, client)
-    html = client.get("/surveys/1/results").data.decode()
-    assert "Segmente (latente Klassen)" in html and "Segmente schätzen" in html
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
+    assert "Latente Klassen" in html and "Segmente schätzen" in html
     assert "cbc_lk" not in client.get("/surveys/1/export/data.csv").data.decode()          # nothing yet
     with app.app_context():
         from app import conjoint_hb, export
@@ -143,7 +143,7 @@ def test_cbc_segments_button_page_choice_and_export(app, client, survey):
         assert look[0]["beta"] * look[1]["beta"] < 0          # opposite signs in the two segments
         assert all(v["se"] is not None for v in look)
         assert view["price"] is not None and all(b < 0 for b in view["price"]["beta"])
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "<strong>fertig</strong>" in html and "Segmente schätzen" not in html
     assert "lc-solutions" in html and "Vorschlag" in html and "Teilnutzen je Segment" in html
     assert "Kamakura, W. A., &amp; Russell" in html                          # the sources of the page
@@ -171,7 +171,7 @@ def test_cbc_segments_button_page_choice_and_export(app, client, survey):
 
         text = methods.facts(db.session.get(Survey, 1))["choice"][0]["text_de"]
         assert "gewählt wurden 3 Segmente (BIC = " in text and "abweichend vom BIC-Vorschlag von 2 Segmenten" in text
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Klassisch" in html and "Rückgängig" in html
     client.post("/surveys/1/results/lc/2/undo", data={"source": "real"})
     with app.app_context():
@@ -183,7 +183,7 @@ def test_cbc_segments_button_page_choice_and_export(app, client, survey):
 
 def test_cbc_segments_need_enough_persons_and_go_stale(app, client, survey):
     cbc_with_segments(app, client, n=40)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Für Segmente fehlen Daten (mindestens 60 Personen" in html
     r = client.post("/surveys/1/results/lc/2", data={"source": "real"}, follow_redirects=True)
     assert "Für Segmente fehlen Daten" in r.data.decode()
@@ -196,7 +196,7 @@ def test_cbc_segments_need_enough_persons_and_go_stale(app, client, survey):
 
         assert segments.current(db.session.get(Item, 2)) is not None
     simulate_segments(app, 2, none_asc=-0.5, seed=11)                       # new answers: the result is stale
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "keine aktuelle Segmentschätzung" in html
     with app.app_context():
         from app import segments
@@ -281,9 +281,9 @@ def test_maxdiff_segments(app, client, survey):
             assert abs(sum(r["values"][c]["score"] for r in rows) - 100) < 1e-6   # scores sum 100 per segment
         overall = [r["overall"] for r in rows]
         assert overall == sorted(overall, reverse=True)
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     # one segment shows no tables of its own (UI/UX audit 2026-10-05, V65)
-    assert "Segmente (latente Klassen)" in html and ("Wahrscheinlichkeits-Scores je Segment" in html if view["K"] > 1
+    assert "Latente Klassen" in html and ("Wahrscheinlichkeits-Scores je Segment" in html if view["K"] > 1
                                                      else "keine Gruppen mit unterschiedlichen Vorlieben" in html)
 
 
@@ -317,27 +317,27 @@ def test_choice_and_undo_in_place_without_computing_the_page(app, client, survey
         db.session.commit()
     r = client.post("/surveys/1/results/lc/2", data={"source": "real"}, headers=FETCH)
     assert r.is_json and r.json["error"] is False and "gestartet" in r.json["message"]
-    client.get("/surveys/1/results?go=1")                             # the page computes and keeps its results
-    part = client.get("/surveys/1/results?lc_part=2", headers=FETCH)
+    client.get("/surveys/1/results/analysis/2?go=1")                             # the page computes and keeps its results
+    part = client.get("/surveys/1/results/analysis/2?lc_part=2", headers=FETCH)
     html = part.data.decode()
     assert part.status_code == 200
     assert 'class="lc-part"' in html and "Ergebnisse werden berechnet" not in html and "<html" not in html
     assert "Segmente beschreiben" in html and "lc-profile" in html     # the single choice question by default
     r = client.post("/surveys/1/results/lc/2/choose", data={"lc_k": "3"}, headers=FETCH)
     assert r.json == {"message": "Übernommen.", "error": False}
-    html = client.get("/surveys/1/results?lc_part=2", headers=FETCH).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?lc_part=2", headers=FETCH).data.decode()
     assert html.count('name="lc_name_') == 3
     # the page itself still comes from the kept results (no wait page), with the new choice
-    page = client.get("/surveys/1/results").data.decode()
+    page = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Ergebnisse werden berechnet" not in page and page.count('name="lc_name_') == 3
     r = client.post("/surveys/1/results/lc/2/undo", data={}, headers=FETCH)
     assert r.json["message"] == "Letzte Änderung zurückgenommen."
-    html = client.get("/surveys/1/results?lc_part=2", headers=FETCH).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?lc_part=2", headers=FETCH).data.decode()
     assert html.count('name="lc_name_') == 2
     # without the script: back to the results with the pool the page named, none for the saved one
     r = client.post("/surveys/1/results/lc/2/choose", data={"lc_k": "3"})
     assert r.status_code == 302 and "source=" not in r.location and r.location.endswith("#lc-2")
-    page = client.get("/surveys/1/results?source=real").data.decode()
+    page = client.get("/surveys/1/results/analysis/2?source=real").data.decode()
     assert 'type="hidden" name="source" value="real"' in page
 
 
@@ -412,7 +412,7 @@ def test_profiles_hit_rates_and_hb_means(app, client, survey, monkeypatch):
     # the results page: the fold with n in the column head, M (SD), on the scale of the HB block; then the importances
     from app.units import number
 
-    html = client.get("/surveys/1/results?go=1").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?go=1").data.decode()
     fold = html[html.index("data-lc-hb"):]
     fold = fold[:fold.index("</details>")]
     assert f'<span class="hint">n = {means["n"][0]}</span>' in fold and "M (SD)" in fold
@@ -424,7 +424,7 @@ def test_profiles_hit_rates_and_hb_means(app, client, survey, monkeypatch):
     assert f'({number(means["diffs"]["asc"]["sd"][0], 1, "de")})' in fold and "mit demselben Faktor der Person normiert" in fold
     # the raw scale chosen in the HB block: the segments of the question alone follow it (static/segments.js)
     client.post("/surveys/1/results/hb/2/scale", data={"scale": "raw"}, headers=FETCH)
-    part = client.get("/surveys/1/results?lc_part=2", headers=FETCH).data.decode()
+    part = client.get("/surveys/1/results/analysis/2?lc_part=2", headers=FETCH).data.decode()
     assert "als Rohwerte (Logit-Skala)" in part and "je Person normiert" not in part
     assert f'({number(look[0]["sd"][0], 2, "de")})' in part
     assert f'({number(means["price"]["sd"][0] * unit, 4, "de")})' in part and f'({number(means["asc"]["sd"][0], 2, "de")})' in part
@@ -441,14 +441,14 @@ def test_profiles_hit_rates_and_hb_means(app, client, survey, monkeypatch):
 
     old = {"kind": "cbc", "persons": 120, "rows": [{"label": "Aussehen", "levels": [{"label": "humanoid", "values": [1.25, -1.5]}]}]}
     monkeypatch.setattr(segments, "_hb_means", lambda *a: old)
-    html = client.get("/surveys/1/results?source=real&go=1").data.decode()   # a named pool: computed anew
+    html = client.get("/surveys/1/results/analysis/2?source=real&go=1").data.decode()   # a named pool: computed anew
     fold = html[html.index("data-lc-hb"):]
     fold = fold[:fold.index("</details>")]
     assert "gewichtet mit ihrer Zugehörigkeit (120 Personen)" in fold and "+1,25" in fold and "−1,50" in fold
     assert "M (SD)" not in fold and "n = " not in fold and "-Wichtigkeiten je Segment" not in fold
     # and the form before the price coefficient and the constant: the table without these rows
     monkeypatch.setattr(segments, "_hb_means", lambda *a: {**old, "form": 2, "n": [60, 60], "diffs": None, "importance": []})
-    html = client.get("/surveys/1/results?source=real&go=1").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=real&go=1").data.decode()
     fold = html[html.index("data-lc-hb"):]
     fold = fold[:fold.index("</details>")]
     assert "M (SD)" in fold and "Preiskoeffizient" not in fold and "Konstante" not in fold
@@ -484,7 +484,7 @@ def test_simulator_per_segment(app, client, survey):
         share = {r["label"]["name"]: float(r["sop"].replace(",", ".")) for r in first["rows"]}
         assert abs(share["Produkt A"] - a) < 1.0                         # the filter gives the table's share
         assert "_P" not in first and "_pids" not in first
-    html = client.get("/surveys/1/results?" + "&".join(f"{k}={v}" for k, v in scenario + [("sim_seg", "2")])).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + "&".join(f"{k}={v}" for k, v in scenario + [("sim_seg", "2")])).data.decode()
     assert "Anteile je Segment" in html and 'name="sim_seg"' in html
 
 
@@ -546,7 +546,7 @@ def test_profile_blocks_carry_bch_tests(app, client, survey):
             r.answers = {**r.answers, "3": codes[0] if truth[r.pid] == 0 else codes[1]}
         db.session.commit()
     client.post("/surveys/1/results/lc/2", data={"source": "real"})
-    html = client.get("/surveys/1/results?go=1").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?go=1").data.decode()
     assert "Unterschied zwischen den Segmenten (BCH)" in html and "Bakk, Z., Tekle" in html
     row = re.search(r'<tr class="lc-test">.*?</tr>', html, re.S).group(0)              # reported as F (S-2)
     assert re.search(r"\(BCH\): F\(1, 118\) = [\d.,]+, N = 120, .*&lt; ,001", row, re.S) and "χ²" not in row
@@ -559,7 +559,7 @@ def test_acbc_segments(app, client, survey):
     app.config.update(LC_FAST)
     with app.app_context():
         acbc.add_responses(db.session.get(Survey, 1), acbc.simulate(db.session.get(Item, 2), 70, price_beta=-0.01))
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     # 70 persons are too few for two segments of this ACBC: the page names the number instead of the button (S-6)
     assert "Segmente schätzen" not in html and "Für 2 Segmente sind mindestens" in html
     client.post("/surveys/1/results/lc/2", data={"source": "real"})
@@ -572,8 +572,8 @@ def test_acbc_segments(app, client, survey):
         view = segments.summary(item, res, "de")
         assert any(w.startswith("ACBC:") for w in view["warnings"])
         assert segments._hits(item, res, []) is None
-    html = client.get("/surveys/1/results").data.decode()
-    assert "Segmente (latente Klassen)" in html and "<strong>fertig</strong>" in html
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
+    assert "Latente Klassen" in html and "<strong>fertig</strong>" in html
 
 
 # --- covariates of the class shares (Dayton & Macready, 1988) -------------------------------------------------------
@@ -665,10 +665,10 @@ def test_saved_scenario_keeps_its_segment(app, client, survey):
         item = db.session.get(Item, 2)
         assert simulator.saved(item)[0]["segment"] == 2
         assert simulator.clean({"scenarios": simulator.saved(item)})["scenarios"][0]["segment"] == 2
-    html = client.get("/surveys/1/results?sim=2&sim_load=0").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?sim=2&sim_load=0").data.decode()
     assert '<option value="2" selected>' in html and "nur „Segment 2“" in html
     # the list in the address wins over the saved one
-    html = client.get("/surveys/1/results?sim=2&sim_load=0&sim_seg=0").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?sim=2&sim_load=0&sim_seg=0").data.decode()
     assert '<option value="0" selected>Alle Personen' in html
 
 
@@ -833,7 +833,7 @@ def test_profile_shows_bch_values_the_other_answer_and_merged_cells(app, client,
             assert not any(np.allclose(r["shares"], proportional, rtol=0, atol=gap / 2) for r in block["rows"])
         # 3 persons with "Anderes": too few for a cell of their own, merged for the test
         assert block["test"]["merged"] and "+" in block["test"]["merged"][0]
-    html = client.get("/surveys/1/results?go=1").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?go=1").data.decode()
     assert "korrigiert sind die BCH-Werte" in html and "verwischt Unterschiede weniger" not in html
     assert "seltene Antworten für den Test zusammengefasst" in html
     book = client.get("/surveys/1/export/codebook.csv").data.decode("utf-8-sig")
@@ -884,7 +884,7 @@ def test_too_few_persons_for_two_segments_named_instead_of_the_button(app, clien
 
     cbc_with_segments(app, client, n=120)
     monkeypatch.setattr(latent_class, "PER_PARAMETER", 50)
-    html = client.get("/surveys/1/results").data.decode()
+    html = client.get("/surveys/1/results/analysis/2").data.decode()
     assert "Segmente schätzen" not in html
     m = re.search(r"Für 2 Segmente sind mindestens (\d+) Personen nötig \(5 Personen je Parameter und Segment, hier "
                   r"(\d+) Parameter je Segment\); mit 120 Personen", html)
@@ -915,7 +915,7 @@ def test_simulator_without_hb_mixes_the_segments_and_word_keeps_the_segment(app,
             shares = [float(x.replace(",", ".")) for x in row["shares"]]
             assert abs(float(row["mixture"].replace(",", ".")) - float(np.dot(pi, shares))) < 0.15
         assert len(t["sizes"]) == 2 and abs(sum(float(z["sum"].replace(",", ".")) for z in t["sizes"]) - 120) < 0.2
-    html = client.get("/surveys/1/results?" + "&".join(f"{k}={v}" for k, v in scenario)).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + "&".join(f"{k}={v}" for k, v in scenario)).data.decode()
     assert "Gesamt (Segmente)" in html and "nicht das Mittel der Segmentspalten" in html
     # with HB: the segment of a saved scenario in Word, and its size on the page
     app.config.update(HB_FAST)
@@ -950,7 +950,7 @@ def test_simulator_without_hb_mixes_the_segments_and_word_keeps_the_segment(app,
     text = "\n".join(p.text for p in doc.paragraphs)
     assert "Szenario „Nur zwei“, Segment „Segment 2“" in text and "Summe der Zugehörigkeiten =" in text
     assert "Segment 6 ist nicht mehr vorhanden: alle Personen." in text
-    html = client.get("/surveys/1/results?" + "&".join(f"{k}={v}" for k, v in scenario + [("sim_seg", "2")])).data.decode()
+    html = client.get("/surveys/1/results/analysis/2?" + "&".join(f"{k}={v}" for k, v in scenario + [("sim_seg", "2")])).data.decode()
     assert "Segmentgröße ≈ Summe der Wahrscheinlichkeiten" in html
     # the effective number is the precision of the weighted mean, not persons (audit 2026-10-06, L-5)
     assert "effektive Fallzahl des gewichteten Mittels" in html and "effektive Fallzahl des gewichteten Mittels" in text

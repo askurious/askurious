@@ -13,7 +13,8 @@ Die Ergebnisse auf der oben gewählten Grundlage, laufend aktuell, während Date
 - **Je Element**: n, M, SD, Median, Konfidenzintervalle, Verteilungen; bei Skalen Cronbachs α und McDonalds ω mit Intervallen sowie eine Itemanalyse.
 - **Skalen im Überblick**: alle Skalenwerte mit α, ω und ihren Korrelationen, als Tabelle für Manuskripte (Word, Deutsch oder Englisch).
 - **Nach Gruppen aufteilen**, z. B. nach Versuchsbedingung; bei zufälliger Zuteilung ist der Unterschied als Wirkung lesbar.
-- **Wahlmodelle**: Zählwerte, aggregiertes Logit und Hierarchical Bayes (HB) je Person, Wichtigkeit und Teilnutzen, Zahlungsbereitschaft, Segmente (Latent-Class-Analyse), Wechselwirkungen zwischen Merkmalen, ein Marktsimulator.
+- **Analysen**: Jede Frage der Conjoint-Familie steht hier als Zeile mit ihrem Stand und öffnet ihre eigene Seite (siehe „Conjoint-Auswertung“ unten).
+- **Wahlmodelle** (auf der Seite der Conjoint-Auswertung): Zählwerte, aggregiertes Logit und Hierarchical Bayes (HB) je Person, Wichtigkeit und Teilnutzen, Zahlungsbereitschaft, Segmente (Latent-Class-Analyse), Wechselwirkungen zwischen Merkmalen, ein Marktsimulator.
 - **Längsschnitt über die Wellen** (mit verknüpften Wellen): Mittelwerte je Welle, Messinvarianz über die Zeit, Wachstumskurven und das Cross-Lagged-Panel-Modell (ab drei Wellen das RI-CLPM), gerechnet auf Knopfdruck über alle verknüpften Personen; sichtbar mit Leserecht in jeder Welle.
 
 ![Skalen im Überblick: Skalenwerte mit α, ω und Korrelationen](img/results-overview.jpg)
@@ -37,6 +38,23 @@ Die Ergebnisse auf der oben gewählten Grundlage, laufend aktuell, während Date
 **Warum.**
 Ergebnisse sollen von sich aus richtig sein und auch ohne Statistikstudium lesbar: Der Test wird aus dem Plan gewählt, jede Kennzahl hat ein Fragezeichen, das zum Glossar der Kennzahlen führt, und jede Seite nennt ihre Literatur.
 Die Reliabilität wird als α und ω mit Intervallen berichtet (Hayes & Coutts, 2020), weil α allein annimmt, dass alle Aussagen gleich gut messen.
+
+### Conjoint-Auswertung
+
+Jede Frage der Conjoint-Familie (Conjoint, ACBC, Adaptive Conjoint, Bewertungs-Conjoint, MaxDiff, Paarvergleich) hat ihre Auswertung auf einer eigenen Seite unter „Ergebnisse“.
+Dorthin führen der Abschnitt **Analysen** der Ergebnisseite (eine Zeile je Frage mit dem Stand: HB aktuell, veraltet, läuft oder noch nicht geschätzt, Zahl der Segmente) und der Knopf „Zur Conjoint-Auswertung“ an der Frage selbst; an der Frage bleiben die Zeile zu Personen und Aufgaben und die Wichtigkeit als Balken.
+
+Die Seite hat flache Abschnitte in fester Reihenfolge, je nachdem, was das Verfahren hat:
+
+- **Wichtigkeit und Teilnutzen**: mit aktueller HB-Schätzung die individuellen Nutzen, sonst das aggregierte Logit-Modell; hier starten Sie die HB-Schätzung, rechnen länger und wählen die Priori. Darunter die Wechselwirkungen zwischen Merkmalen.
+- **Marktsimulator** (bei MaxDiff „Auswahl aus Aussagen“) mit „Produkt optimieren“ und gespeicherten Szenarien.
+- **Segmente**: Stand, Lösungen und Größe, Teilnutzen je Segment; Zahlungsbereitschaft, HB-Nutzen je Segment, „Segmente beschreiben“ und Kovariaten sind je ein Klappblock.
+- **Modellgüte**: Holdout-Aufgaben, Anpassung je Person, Konvergenz der Kette.
+- **Details**: Zählwerte und das aggregierte Logit-Modell im Detail.
+- **Herunterladen**: das Langformat der Frage, Szenarien als Word-Tabelle, die Tabelle der Wechselwirkungen.
+
+Datenpool und Ansicht gelten wie auf der Ergebnisseite; die Zeile unter der Überschrift nennt die Grundlage und führt zum Ändern dorthin zurück.
+Knöpfe rechnen an Ort und Stelle mit Fortschrittsbalken, die Seite lädt nicht neu. Adressen der Ergebnisseite, die früher an eine Stelle der Conjoint-Auswertung führten, leiten auf die neue Seite weiter.
 
 ---
 

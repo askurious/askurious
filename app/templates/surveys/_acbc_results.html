@@ -6,20 +6,28 @@
 {% set h = e.acbc.hb %}
 {% set hb_now = h and h.state == "current" and h.result %}
 {% from "_macros.html" import pct, signed, abbr %}
+{# an: the part the page of the analysis asks for (surveys/analysis.html): "head" the line of the basis, "main" importance and part-worths, "sim" the simulator, "segments", "quality", "details" #}
 <div class="acbc-results">
 {% if a.persons %}
+{% if an == "head" %}
 <p class="muted small">{{ de_en("{p} Personen mit Wunschvariante, {s} mit Screening.", "{p} people with a preferred variant, {s} with screening.", p=a.persons, s=a.screened) }}
   {% if a.possible.n %}{{ de_en("Infrage kommende Varianten je Person:", "Possible variants per person:") }} M = {{ num(a.possible.mean, 1) }}, Md = {{ num(a.possible.median, 1) }} ({{ a.possible.min }}–{{ a.possible.max }}){% if a.rules and a.auto.n and a.auto.max %}; {{ de_en("wegen der Rückfragen entfallen:", "dropped because of the follow-up questions:") }} M = {{ num(a.auto.mean, 1) }}{% endif %}; {{ de_en("Turnieraufgaben:", "tournament tasks:") }} M = {{ num(a.tour.mean, 1) }}.{% endif %}
   {% if a.winners %}{{ de_en("Gewinner aus dem Turnier: {t}, einzige infrage kommende: {s}, Wunschvariante (keine infrage): {b}.", "Winners from the tournament: {t}, only possible one: {s}, preferred variant (none possible): {b}.", t=a.sources.tour, s=a.sources.single, b=a.sources.byo) }}{% endif %}</p>
+{% endif %}
 
+{% if an == "main" %}
 {# 1. importance and part-worths #}
 {% if not hb_now %}{% with cm_part="main", m=m, asc_label=de_en("Schwelle „kommt nicht infrage“", "Threshold “out of the question”"), sets_note=de_en("Screening als Wahl gegen die Schwelle „kommt nicht infrage“, Turnier als Wahl unter zwei oder drei Varianten", "screening as a choice against the threshold “out of the question”, tournament as a choice among two or three variants") %}{% include "surveys/_choice_model.html" %}{% endwith %}
 {% if m and m.wtp_ok %}<p class="muted small">{{ de_en("Zahlungsbereitschaft beim ACBC: Jede Person sieht Varianten rund um ihre eigene Wunschvariante. Unterscheiden sich die Vorlieben stark, fällt die Zahlungsbereitschaft des gemeinsamen Modells deshalb zu niedrig aus (in Simulationen um rund 30 %), und ihr Intervall ist zu eng. Den Preiskoeffizienten je Person liefert die {hb}-Schätzung darunter.", "Willingness to pay with ACBC: every person sees variants around their own preferred variant. If preferences differ strongly, the willingness to pay of the common model therefore comes out too low (by about 30% in simulations), and its interval is too narrow. The price coefficient per person comes from the {hb} estimation below.", html=True, hb=abbr("hb")) }}</p>{% endif %}{% endif %}
 {% if h %}{% with hb_section="main" %}{% include "surveys/_conjoint_hb.html" %}{% endwith %}{% endif %}
 {% if e.acbc.ww %}{% with w=e.acbc.ww %}{% include "surveys/_conjoint_ww.html" %}{% endwith %}{% endif %}
 {% if a.ruled and (m or hb_now) %}<p class="muted small">{{ de_en("Bestätigte Regeln ({n} von {p} Personen mit Ausschlussgrund, unverzichtbarer Eigenschaft oder Preisgrenze) gehen nicht selbst in die Schätzung ein: Sie wirken nur über die Varianten, die danach gezeigt wurden. Der Teilnutzen einer als Ausschlussgrund bestätigten Stufe stützt sich daher nur auf die Urteile davor und fällt eher zu mild aus.", "Confirmed rules ({n} of {p} people with an unacceptable level, a must-have or a price limit) do not enter the estimation themselves: they act only through the variants shown afterwards. The part-worth of a level confirmed as unacceptable therefore rests only on the judgements before it and tends to come out too mild.", n=a.ruled, p=a.screened) }}</p>{% endif %}
+{% endif %}
+{% if an == "sim" %}
 {# 2. the market simulator #}
-<div class="sim-slot" data-sim-slot="{{ e.item.id }}" data-sim-url="{{ url_for('surveys.results', survey_id=survey.id) }}">{% if sims and sims.get(e.item.id) %}{% with s=sims[e.item.id] %}{% include "surveys/_simulator.html" %}{% endwith %}{% elif e.acbc.hb %}<p class="muted small">{{ de_en("Der Marktsimulator rechnet beim ACBC nur mit den individuellen Nutzen: Er erscheint hier, sobald die HB-Schätzung oben fertig ist.", "With ACBC the market simulator works only with the individual utilities: it appears here as soon as the HB estimation above is done.") }}</p>{% endif %}</div>
+<div class="sim-slot" data-sim-slot="{{ e.item.id }}" data-sim-url="{{ part_url|default(url_for('surveys.results', survey_id=survey.id)) }}">{% if sims and sims.get(e.item.id) %}{% with s=sims[e.item.id] %}{% include "surveys/_simulator.html" %}{% endwith %}{% elif e.acbc.hb %}<h2>{{ de_en("Marktsimulator", "Market simulator") }}</h2><p class="muted small">{{ de_en("Der Marktsimulator rechnet beim ACBC nur mit den individuellen Nutzen: Er erscheint hier, sobald die HB-Schätzung oben fertig ist.", "With ACBC the market simulator works only with the individual utilities: it appears here as soon as the HB estimation above is done.") }}</p>{% endif %}</div>
+{% endif %}
+{% if an == "details" %}
 {# 3. folded: what lies behind #}
 <details class="res-dist res-choice-fold">
   <summary>{{ de_en("Zählwerte je Stufe", "Counts per level") }}{{ fn("acbc") }}</summary>
@@ -55,14 +63,18 @@
 {% if hb_now and m and m.wtp_ok %}<p class="muted small">{{ de_en("Zahlungsbereitschaft beim ACBC: Jede Person sieht Varianten rund um ihre eigene Wunschvariante. Unterscheiden sich die Vorlieben stark, fällt die Zahlungsbereitschaft des gemeinsamen Modells deshalb zu niedrig aus (in Simulationen um rund 30 %), und ihr Intervall ist zu eng. Den Preiskoeffizienten je Person liefert die HB-Schätzung darunter.", "Willingness to pay with ACBC: every person sees variants around their own preferred variant. If preferences differ strongly, the willingness to pay of the common model therefore comes out too low (by about 30% in simulations), and its interval is too narrow. The price coefficient per person comes from the HB estimation below.") }}</p>{% endif %}</div>
 </details>
 {% endif %}
-{% if e.acbc.lc %}{% with l=e.acbc.lc %}{% include "surveys/_segments_fold.html" %}{% endwith %}{% endif %}
+{% endif %}
+{% if an == "segments" %}
+{% if e.acbc.lc %}{% with l=e.acbc.lc %}{% include "surveys/_segments.html" %}{% endwith %}{% endif %}
+{% endif %}
+{% if an == "quality" %}
 {% if h %}
-<details class="res-dist res-choice-fold" id="quality-{{ e.item.id }}">
-  <summary>{{ de_en("Modellgüte", "Model quality") }} <span class="hint">{{ de_en("Anpassung je Person, Konvergenz", "fit per person, convergence") }}</span></summary>
   {% with hb_section="quality" %}{% include "surveys/_conjoint_hb.html" %}{% endwith %}
-</details>
+{% endif %}
 {% endif %}
 {% else %}
+{% if an == "head" %}
 <p class="muted small">{{ de_en("Noch keine Wunschvarianten.", "No preferred variants yet.") }}</p>
+{% endif %}
 {% endif %}
 </div>

@@ -25,12 +25,12 @@ def with_dummies(app, client, n=30, **kw):
 
 def test_hb_button_estimate_results_and_export(app, client, survey):
     with_dummies(app, client, answer="tie")
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "Werte je Person schätzen (Hierarchical Bayes)" in html and "pc_hb_value1" not in client.get(
         "/surveys/1/export/data.csv?source=dummy").data.decode()
     r = client.post("/surveys/1/results/hb/2", data={"source": "dummy", "speeder": "50"})
     assert r.status_code == 302 and r.location.endswith("#hb-2")
-    html = client.get("/surveys/1/results?source=dummy").data.decode()
+    html = client.get("/surveys/1/results/analysis/2?source=dummy").data.decode()
     assert "<strong>fertig</strong>" in html and "Mittlere Werte" in html and "Werte je Person schätzen" not in html
     with app.app_context():
         from app import paired_hb
@@ -52,7 +52,7 @@ def test_hb_button_estimate_results_and_export(app, client, survey):
     book = client.get("/surveys/1/export/codebook.csv?source=dummy").data.decode("utf-8-sig")
     assert "Bradley-Terry, benachbarte Kategorien" in book
     # the HB block alone, as static/hb.js fetches it
-    part = client.get("/surveys/1/results?source=dummy&hb_part=2", headers={"X-Requested-With": "fetch"})
+    part = client.get("/surveys/1/results/analysis/2?source=dummy&hb_part=2", headers={"X-Requested-With": "fetch"})
     assert part.status_code == 200 and "Mittlere Werte" in part.data.decode() and "hb-quality-2" in part.data.decode()
 
 

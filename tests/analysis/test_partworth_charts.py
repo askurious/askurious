@@ -41,6 +41,6 @@ def test_cbc_results_page_folds_the_tables(app, client, survey):
 
     setup(client)
     simulate(app, 60)
-    html = client.get("/surveys/1/results").get_data(as_text=True)
+    html = client.get("/surveys/1/results/analysis/2").get_data(as_text=True)
     assert "pw-chart" in html and "<tspan" in html
     assert html.count('class="res-dist pw-table-fold"') >= 2 and "Tabelle mit SE" in html

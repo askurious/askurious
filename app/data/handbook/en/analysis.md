@@ -13,7 +13,8 @@ The results of the basis chosen above, live while data come in:
 - **Per element**: n, M, SD, median, confidence intervals, distributions; for scales Cronbach's α and McDonald's ω with intervals, and an item analysis.
 - **Scales at a glance**: all scale scores with α, ω and their correlations, as a table for manuscripts (Word, German or English).
 - **Split into groups**, e.g. by experimental condition; with random assignment the difference can be read as an effect.
-- **Choice models**: counts, aggregate logit and hierarchical Bayes (HB) per person, importance and part-worths, willingness to pay, segments (latent class), interactions between attributes, a market simulator.
+- **Analyses**: every question of the conjoint family is listed here with its state and opens its own page (see “Conjoint analysis” below).
+- **Choice models** (on the page of the conjoint analysis): counts, aggregate logit and hierarchical Bayes (HB) per person, importance and part-worths, willingness to pay, segments (latent class), interactions between attributes, a market simulator.
 - **Longitudinal analysis over the waves** (with linked waves): means per wave, measurement invariance over time, growth curves and the cross-lagged panel model (from three waves the RI-CLPM), computed on a button over all linked people; visible with read access to every wave.
 
 ![Scales at a glance: scale scores with α, ω and correlations](img/results-overview.jpg)
@@ -37,6 +38,23 @@ The results of the basis chosen above, live while data come in:
 **Why.**
 Results should be correct by default and readable by someone who is not a statistician: the test is chosen from the plan, every figure has a question mark that leads to the glossary of statistics, and every page lists its references.
 Reliability is reported as α and ω with intervals (Hayes & Coutts, 2020), because α alone assumes that all statements measure equally well.
+
+### Conjoint analysis
+
+Every question of the conjoint family (conjoint, ACBC, adaptive conjoint, ratings-based conjoint, MaxDiff, paired comparison) has its analysis on a page of its own below “Results”.
+The section **Analyses** of the results page leads there (one line per question with its state: HB current, out of date, running or not estimated yet, number of segments), and so does the button “To the conjoint analysis” at the question itself; the question keeps the line on people and tasks and the importance as bars.
+
+The page has flat sections in a fixed order, depending on what the procedure has:
+
+- **Importance and part-worths**: with a current HB estimation the individual utilities, otherwise the aggregate logit model; here you start the HB estimation, run it longer and choose the prior. Below them the interactions between attributes.
+- **Market simulator** (for MaxDiff “Choice among statements”) with “Optimise product” and saved scenarios.
+- **Segments**: state, solutions and size, part-worths per segment; willingness to pay, HB utilities per segment, “Describe segments” and covariates are one fold each.
+- **Model quality**: holdout tasks, fit per person, convergence of the chain.
+- **Details**: counts and the aggregate logit model in detail.
+- **Download**: the long format of the question, scenarios as a Word table, the table of interactions.
+
+Data pool and view apply as on the results page; the line under the heading names the basis and leads back there to change it.
+Buttons compute in place with a progress bar, the page does not load again. Addresses of the results page that used to lead to a place in the conjoint analysis are forwarded to the new page.
 
 ---
 
