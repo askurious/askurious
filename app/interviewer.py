@@ -148,6 +148,18 @@ def sign_out(access):
     access.revision, access.devices = _revision(), []
 
 
+def block(access):
+    """Blocked: the link opens nothing, and every session of it ends with its next request. Key, rights and
+    interviews stay."""
+    access.blocked = True
+    sign_out(access)
+
+
+def unblock(access):
+    """Open again with the same key; its devices open the link anew."""
+    access.blocked = False
+
+
 def state(access, now=None):
     """"active" | "blocked" | "expired" | "invited" (not opened yet)."""
     if access.blocked:
@@ -571,22 +583,26 @@ def rights_all(code, aid):
 @bp.route("/guide/<code>/interviewers/<int:aid>/<action>", methods=["POST"])
 @login_required
 def change(code, aid, action):
-    from app import security_log
+    """One action on one interviewer link. Blocking and unblocking are steps for "Rückgängig" (part blocked:<id> of
+    app/undo.py, Ralf 2026-11-27); a new link, signing out, extending and deleting are not."""
+    from app import security_log, undo
 
     survey = _manage(code)
     access = db.session.get(InterviewerAccess, aid)
     if access is None or access.survey_id != survey.id or action not in ACTIONS:
         abort(404)
     name = access.name
+    step = undo.begin(survey) if action in ("block", "unblock") else None
     if action == "link":
         _keep_once(access, new_key(access))
         message = de_en("Neuer Link für {name}: Der alte öffnet nichts mehr.", "New link for {name}: the old one opens nothing any more.", name=name)
     elif action == "block":
-        access.blocked = True
-        sign_out(access)
+        block(access)
+        step = step.done(undo.both("Interviewlink von „{name}“ gesperrt", "Interviewer link of “{name}” blocked", name=name), page="interviewers")
         message = de_en("Zugang von {name} gesperrt.", "Access of {name} blocked.", name=name)
     elif action == "unblock":
-        access.blocked = False
+        unblock(access)
+        step = step.done(undo.both("Interviewlink von „{name}“ entsperrt", "Interviewer link of “{name}” unblocked", name=name), page="interviewers")
         message = de_en("Zugang von {name} entsperrt. Die Geräte öffnen den Link neu.", "Access of {name} unblocked. The devices open the link again.", name=name)
     elif action == "signout":
         sign_out(access)
@@ -603,7 +619,41 @@ def change(code, aid, action):
         message = de_en("Zugang von {name} gelöscht. Die Interviews bleiben beim Leitfaden.", "Access of {name} deleted. The interviews stay with the guide.", name=name)
     db.session.commit()
     security_log.event(f"interviewer_access_{action}", account=current_user.id, target=survey.code)
-    flash(message, "success")
+    flash(message, "undo" if step is not None else "success")  # "undo": the message carries the button, if a step was kept
+    return _back(survey)
+
+
+@bp.route("/guide/<code>/interviewers/all/<action>", methods=["POST"])
+@login_required
+def change_all(code, action):
+    """Every interviewer link of the guide blocked or unblocked at once (Ralf 2026-11-27), e.g. when a seminar ends
+    or goes on. Blocking takes the links not blocked yet and ends their sessions; unblocking takes the blocked ones,
+    also those blocked with an account's password change (account_access.block_interviewers). Nothing is deleted:
+    keys, rights, expiry and interviews stay, and an expired link stays expired. One step for "Rückgängig", which
+    puts every link back to what it was before."""
+    from app import security_log, undo
+
+    survey = _manage(code)
+    if action not in ("block", "unblock"):
+        abort(404)
+    step = undo.begin(survey)
+    rows = [a for a in accesses(survey) if bool(a.blocked) != (action == "block")]
+    for access in rows:
+        (block if action == "block" else unblock)(access)
+    if action == "block":
+        step.done(undo.both("Alle Interviewlinks gesperrt", "All interviewer links blocked"), page="interviewers")
+        message = (de_en("Interviewlinks gesperrt: {n}. Alle Geräte sind abgemeldet.",
+                         "Interviewer links blocked: {n}. All devices are signed out.", n=len(rows)) if rows
+                   else de_en("Alle Interviewlinks waren schon gesperrt.", "All interviewer links were blocked already."))
+    else:
+        step.done(undo.both("Alle Interviewlinks entsperrt", "All interviewer links unblocked"), page="interviewers")
+        message = (de_en("Interviewlinks entsperrt: {n}. Die Geräte öffnen den Link neu.",
+                         "Interviewer links unblocked: {n}. The devices open the link again.", n=len(rows)) if rows
+                   else de_en("Kein Interviewlink war gesperrt.", "No interviewer link was blocked."))
+    db.session.commit()
+    if rows:
+        security_log.event(f"interviewer_access_{action}_all", account=current_user.id, target=survey.code, counts=len(rows))
+    flash(message, "undo" if rows else "success")  # "undo": the message carries the button (base.html)
     return _back(survey)
 
 
