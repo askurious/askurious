@@ -225,10 +225,10 @@
       {# how part 3 shows the conditions (app/study_conditions.py); the packages and the pre-registration take "full" #}
       <form method="get" action="{{ url_for('surveys.export_study_material', survey_id=survey.id) }}" class="xp-material">
         <fieldset><legend>{{ de_en("Bedingungen darstellen", "Show the conditions") }}</legend>
-          {% for key, label, hint in [("marked", de_en("Vollständig mit Hervorhebung", "Full with highlights"), de_en("alle Bedingungen nacheinander, die Unterschiede hervorgehoben", "all conditions one after the other, with the differences highlighted")),
-                                      ("full", de_en("Vollständig", "Full"), de_en("alle Bedingungen nacheinander, ohne Hervorhebung der Unterschiede", "all conditions one after the other, without highlighting differences")),
-                                      ("columns", de_en("Spalten", "Columns"), de_en("kann bei drei Bedingungen gut passen, ab fünf nicht mehr möglich; zeigt sie nebeneinander", "may work well for three conditions, not possible from five on; presents them side by side")),
-                                      ("inline", de_en("Im Textfluss", "Inline"), de_en("kann bei zwei Bedingungen mit kleinen Unterschieden gut passen; zeigt den Text in einem Fluss", "may work well for two conditions with small differences; shows the text in one flow"))] %}
+          {% for key, label, hint in [("marked", de_en("Vollständig mit Hervorhebung", "Full with highlights"), de_en("Zeigt alle Bedingungen nacheinander und hebt die Unterschiede hervor.", "Shows all conditions one after the other and highlights the differences.")),
+                                      ("full", de_en("Vollständig", "Full"), de_en("Zeigt alle Bedingungen nacheinander, ohne Hervorhebung.", "Shows all conditions one after the other, without highlighting.")),
+                                      ("columns", de_en("Spalten", "Columns"), de_en("Gut geeignet, um zwei oder drei Bedingungen nebeneinander zu zeigen.", "Well suited to showing two or three conditions side by side.")),
+                                      ("inline", de_en("Im Textfluss", "Inline"), de_en("Integriert Unterschiede direkt im Textfluss, wird bei vielen Bedingungen unübersichtlich.", "Integrates the differences directly into the running text; becomes hard to read with many conditions."))] %}
           <label class="check"><input type="radio" name="compare" value="{{ key }}" {% if key == "marked" %}checked{% endif %}> {{ label }} <span class="hint">{{ hint }}</span></label>
           {% endfor %}
         </fieldset>
